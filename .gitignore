@@ -20,17 +20,6 @@ tmp
 _yardoc
 doc/
  
-
-#********** java template********** 
-
-*.class
-
-# Package Files #
-*.jar
-*.war
-*.ear
- 
-
 #********** osx template********** 
 
 .DS_Store

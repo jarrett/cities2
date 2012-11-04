@@ -18,9 +18,6 @@ def check_gl_error
   end
 end
 
-height_field = HeightField.new(1, 1, 1)
-height_field.loadFromImage('assets/height_test.jpg')
-
 Display.setDisplayMode(DisplayMode.new(800,600))
 Display.create
 Display.setTitle('Cities')

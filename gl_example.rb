@@ -125,7 +125,8 @@ until Display.isCloseRequested
   # Bind
   GL15.glBindBuffer(GL15::GL_ARRAY_BUFFER, attr_buffer_id)
   check_gl_error
-  
+  GL15.glBindBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, elem_buffer_id)
+  check_gl_error
   
   # Attribute pointers
   # index, size, type, normalized, stride, offset
@@ -140,8 +141,6 @@ until Display.isCloseRequested
   GL20.glEnableVertexAttribArray(normal_attr_index)
   check_gl_error
   
-  GL15.glBindBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, elem_buffer_id)
-  check_gl_error
   # Draw
   GL11.glDrawElements(GL11::GL_TRIANGLES, 3, GL11::GL_UNSIGNED_INT, 0) # Count is the number of elements in the index buffer
   check_gl_error

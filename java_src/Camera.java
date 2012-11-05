@@ -22,10 +22,13 @@ class Camera {
     GLError.check();
     GL11.glLoadIdentity();
     GLError.check();
-    GL11.glRotatef(rotX, 1.0f, 0.0f, 0.0f);
-    GLError.check();
+    // Translate
     GL11.glTranslatef(transLR, transUD, 0);
     GLError.check();
+    // Rotate x
+    GL11.glRotatef(rotX, 1.0f, 0.0f, 0.0f);
+    GLError.check();
+    // Rotate z
     GL11.glRotatef(rotZ, 0.0f, 0.0f, 1.0f);
     GLError.check();
   }

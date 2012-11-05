@@ -123,6 +123,7 @@ check_gl_error
 GL11.glClearColor(0.8, 0.85, 1, 0)
 check_gl_error
 GL11.glEnable(GL11::GL_DEPTH_TEST)
+GL11.glDepthMask(true)
 GL11.glDepthFunc(GL11::GL_LEQUAL)
 check_gl_error
 
@@ -143,12 +144,7 @@ until Display.isCloseRequested
     rot_z = rot_z % 360
     rot_x += Mouse.getDY * 0.17
     rot_x = rot_x % 360
-    if rot_x < -90
-      rot_x = 90
-    end
-    if rot_x > 90
-      rot_x = 90
-    end
+    puts rot_x
   elsif Mouse.isButtonDown(1)
     trans_lr += Mouse.getDX * 1.5 / zoom
     trans_ud -= Mouse.getDY * 1.5 / zoom
@@ -189,7 +185,25 @@ until Display.isCloseRequested
   check_gl_error
   GL15.glBindBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, 0)
   check_gl_error
-    
+  
+  GL11.glBegin(GL11::GL_LINES)
+  GL20.glVertexAttrib3d(position_attr_index, 0, 0, 0)
+  GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
+  GL20.glVertexAttrib3d(position_attr_index, 0, 0, 200)
+  GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
+  
+  GL20.glVertexAttrib3d(position_attr_index, 0, 0, 200)
+  GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
+  GL20.glVertexAttrib3d(position_attr_index, 3, 0, 190)
+  GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
+  
+  GL20.glVertexAttrib3d(position_attr_index, 0, 0, 200)
+  GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
+  GL20.glVertexAttrib3d(position_attr_index, -3, 0, 190)
+  GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
+  GL11.glEnd
+  check_gl_error
+  
   if false
     GL11.glColor3d(1, 0, 0)
     GL11.glPointSize(5.0)

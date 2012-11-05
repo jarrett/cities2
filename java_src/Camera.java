@@ -9,7 +9,7 @@ class Camera {
   // to the controls, but it means the translate coords are not alinged with the world axes. This
   // could make it harder to cull, if we ever decide to do that.
   public static void set(int viewportWidth, int viewportHeight, float viewportZoom, float transLR, float transUD, float rotZ, float rotX) throws RuntimeException {
-    GL11.glMatrixMode(GL11.GL_MODELVIEW);
+    GL11.glMatrixMode(GL11.GL_PROJECTION);
     GLError.check();
     GL11.glLoadIdentity();
     GLError.check();
@@ -17,6 +17,10 @@ class Camera {
     float xAbs = viewportWidth / twiceZoom;
     float yAbs = viewportHeight / twiceZoom;
     GL11.glOrtho(-1 * xAbs, xAbs, -1 * yAbs, yAbs, -500, 500);
+    GLError.check();
+    GL11.glMatrixMode(GL11.GL_MODELVIEW);
+    GLError.check();
+    GL11.glLoadIdentity();
     GLError.check();
     GL11.glRotatef(rotX, 1.0f, 0.0f, 0.0f);
     GLError.check();

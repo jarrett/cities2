@@ -142,12 +142,16 @@ until Display.isCloseRequested
   if Mouse.isButtonDown(0)
     rot_z += Mouse.getDX * 0.17
     rot_z = rot_z % 360
-    rot_x += Mouse.getDY * 0.17
-    rot_x = rot_x % 360
+    rot_x -= Mouse.getDY * 0.17
+    if rot_x < -90
+      rot_x = -90
+    elsif rot_x > 0
+      rot_x = 0
+    end
     puts rot_x
   elsif Mouse.isButtonDown(1)
     trans_lr += Mouse.getDX * 1.5 / zoom
-    trans_ud -= Mouse.getDY * 1.5 / zoom
+    trans_ud += Mouse.getDY * 1.5 / zoom
   end
   Camera.set(800, 600, zoom, trans_lr, trans_ud, rot_z, rot_x)
   

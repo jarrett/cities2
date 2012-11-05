@@ -19,13 +19,14 @@ class HeightField {
   public double xScale, yScale, zScale; // cols => x, rows => y, height => z
   double heights[][];
   
+  // Can gracefully handle out-of-range coordinates
   public double atXY(double worldX, double worldY) {
     // scale * height array offset = world coord
     // height array offset = world coord / scale
-    int left   = (int)Math.floor(worldX / xScale);
-    int right  = (int)Math.ceil( worldX / xScale);
-    int top    = (int)Math.floor(worldY / yScale);
-    int bottom = (int)Math.ceil( worldY / yScale);
+    int left   = Math.max((int)Math.floor(worldX / xScale), 0   );
+    int right  = Math.min((int)Math.ceil( worldX / xScale), cols);
+    int top    = Math.max((int)Math.floor(worldY / yScale), 0   );
+    int bottom = Math.min((int)Math.ceil( worldY / yScale), rows);
     return (new InterpolationBilinear()).interpolate(
       heights[left][top],
       heights[right][top],
@@ -46,7 +47,9 @@ class HeightField {
   // Typically, this should be called shortly after the constructor.
   public void loadFromImage(String imagePath) throws java.io.IOException {
     BufferedImage img = javax.imageio.ImageIO.read(new java.io.File(imagePath));
-    heights = new double[img.getWidth()][img.getHeight()];
+    cols = img.getWidth();
+    rows = img.getHeight();
+    heights = new double[cols][rows];
     for (int y = 0; y < img.getHeight(); y++) {
       for (int x = 0; x < img.getWidth(); x++) {
         heights[x][y] = (new Color(img.getRGB(x, y))).getRed();

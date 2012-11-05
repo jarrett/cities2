@@ -5,9 +5,19 @@ import cities.HeightField;
 import cities.VBO;
 
 class TerrainMesh {
-  class Vertex {
+  static class Vertex {
     public Vector3d position;
     public Vector3d normal;
+    
+    public Vertex() {
+      this.position = new Vector3d(0, 0, 0);
+      this.normal = new Vector3d(0, 0, 0);
+    }
+    
+    public Vertex(Vector3d position) {
+      this.position = position;
+      this.normal = new Vector3d(0, 0, 0);
+    }
     
     public Vertex(Vector3d position, Vector3d normal) {
       this.position = position;
@@ -18,7 +28,7 @@ class TerrainMesh {
   HeightField heightField;
   int cols, rows;
   double squareSize;
-  Vertex verts[][];
+  public Vertex verts[][];
   VBO attrBuffer;
   VBO indexBuffer;
   
@@ -31,17 +41,24 @@ class TerrainMesh {
     /* Determine the min and max rows and columns. Since the world coords passed in probably aren't
     coincident with vertices, err on the side of including more rows and columns. Clamp the mins and maxes
     within the bounds of the height field. */
-    int minColIndex = Math.min((int)Math.floor(minX / squareSize), 0);
-    int minRowIndex = Math.min((int)Math.floor(minY / squareSize), 0);
-    int maxColIndex = Math.max((int)Math.ceil( maxX / squareSize), cols());
-    int maxRowIndex = Math.max((int)Math.ceil( maxY / squareSize), rows());
+    int minCol = Math.min((int)Math.floor(minX / squareSize), 0);
+    int minRow = Math.min((int)Math.floor(minY / squareSize), 0);
+    int maxCol = Math.max((int)Math.ceil( maxX / squareSize), cols() - 1);
+    int maxRow = Math.max((int)Math.ceil( maxY / squareSize), rows() - 1);
     
     /* For each of the vertices in the range, bilinearly interpolate between pixels
     to determine the z coord. Expand the range by one in each direction (without going
     out of bounds) so that we can later calculate normals. */
-    for (int row = Math.min(minRowIndex - 1, 0); row <= Math.max(maxRowIndex + 1, rows()); row++) {
-      for (int col = Math.min(minColIndex - 1, 0); col <= Math.max(maxColIndex + 1, cols()); col++) {
+    for (int row = Math.max(minRow - 1, 0); row <= Math.min(maxRow + 1, rows() - 1); row++) {
+      for (int col = Math.max(minCol - 1, 0); col <= Math.min(maxCol + 1, cols() - 1); col++) {
+        // If the vertex has not been initialized, initialize it. This always executes the first time
+        // the mesh is generated.
+        if (verts[row][col] == null) {
+          verts[row][col] = new Vertex(new Vector3d(squareSize * col, squareSize * row, 0));
+        }
         verts[row][col].position.z = heightField.atXY(
+          // Either of these values could be slightly outside the height field's range.
+          // The height field knows how to handle that.
           squareSize * col,
           squareSize * row
         );
@@ -49,8 +66,8 @@ class TerrainMesh {
     }
     
     /* Calculate normals for each vertex in the range by averaging the normals of all neighboring triangles. */
-    for (int row = minRowIndex; row <= maxRowIndex; row++) {
-      for (int col = minRowIndex; row < maxRowIndex; row++) {
+    for (int row = minRow; row <= maxRow; row++) {
+      for (int col = minCol; col <= maxCol; col++) {
         Vector3d averageNormal = new Vector3d(0, 0, 0);
         if (col > 0 && row > 0) { // Upper left
           averageNormal.add(
@@ -73,6 +90,7 @@ class TerrainMesh {
           );
         }
         averageNormal.normalize();
+        System.out.println(averageNormal);
         verts[col][row].normal = averageNormal;
       }
     }
@@ -82,8 +100,12 @@ class TerrainMesh {
     return rows;
   }
   
-  public TerrainMesh(HeightField heightField) {
+  public TerrainMesh(HeightField heightField, double squareSize) {
     this.heightField = heightField;
+    this.squareSize = squareSize;
+    cols = (int)Math.round(heightField.worldWidth() / squareSize);
+    rows = (int)Math.round(heightField.worldLength() / squareSize);
+    verts = new Vertex[cols][rows];
   }
   
   // Ensures that the Z component is positive.

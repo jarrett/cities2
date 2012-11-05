@@ -12,9 +12,10 @@ task :java do
   if system 'javac ' + outdated_sources.join(' ') + ' -d java_classes -classpath "jar/*"'
     puts 'Jarring'
     class_files = Dir.glob('java_classes/**/*.class').collect do |path|
-      path.sub!('java_classes', '')
-      path = ' -C java_classes ' + path
+      path.sub!('java_classes/', '')
+      path.gsub!('$', '\$')
+      path = ' -C java_classes "' + path + '"'
     end.join(' ')
-    system 'jar cf jar/' + JAR_NAME + '.jar ' + class_files
+    system 'jar cf jar/' + JAR_NAME + '.jar' + class_files
   end
 end

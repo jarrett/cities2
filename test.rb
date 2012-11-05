@@ -148,7 +148,6 @@ until Display.isCloseRequested
     elsif rot_x > 0
       rot_x = 0
     end
-    puts rot_x
   elsif Mouse.isButtonDown(1)
     trans_lr += Mouse.getDX * 1.5 / zoom
     trans_ud += Mouse.getDY * 1.5 / zoom

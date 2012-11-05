@@ -18,7 +18,7 @@ class Camera {
     float yAbs = viewportHeight / twiceZoom;
     GL11.glOrtho(-1 * xAbs, xAbs, -1 * yAbs, yAbs, -500, 500);
     GLError.check();
-    GL11.glRotatef(rotX, 1.0f, 0.0f, 0.0f);
+    GL11.glRotatef(rotX + 180, 1.0f, 0.0f, 0.0f);
     GLError.check();
     GL11.glTranslatef(transLR, transUD, 0);
     GLError.check();

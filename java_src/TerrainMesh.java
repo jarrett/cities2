@@ -26,7 +26,9 @@ class TerrainMesh {
   }
   
   HeightField heightField;
-  int cols, rows;
+  // Rows and columns define the number of vertices. This is NOT the number of squares.
+  // That would be rows or columns minus one.
+  int cols, rows; 
   double squareSize;
   public Vertex verts[][];
   VBO attrBuffer;
@@ -90,7 +92,6 @@ class TerrainMesh {
           );
         }
         averageNormal.normalize();
-        System.out.println(averageNormal);
         verts[col][row].normal = averageNormal;
       }
     }
@@ -98,6 +99,10 @@ class TerrainMesh {
   
   public int rows() {
     return rows;
+  }
+  
+  public int squares() {
+    return (rows() - 1) * (cols() - 1);
   }
   
   public TerrainMesh(HeightField heightField, double squareSize) {

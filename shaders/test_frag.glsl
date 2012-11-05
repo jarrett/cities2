@@ -5,7 +5,14 @@ varying vec3 vPosition;
 varying vec3 vNormal;
 
 void main() {
-  vPosition;
-  vNormal;
-  gl_FragColor = vec4(1.0, 0.2, 0.2, 1.0);
+  vec3 litColor =
+    vec3(1.0, 1.0, 1.0) *
+    dot(
+      normalize(vNormal),
+      normalize(vec3(0.2, 0.2, 1.0))
+    );
+  gl_FragColor = vec4(
+    litColor.x, litColor.y, litColor.z, 1.0
+  );
+  /*gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);*/
 }

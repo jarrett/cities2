@@ -11,7 +11,8 @@ java_import 'org.lwjgl.input.Mouse'
 java_import 'cities.HeightField'
 java_import 'cities.TerrainMesh'
 java_import 'cities.Camera'
-java_import 'javax.vecmath.Vector3d'
+java_import 'cities.Texture'
+#java_import 'javax.vecmath.Vector3d'
 
 def check_gl_error
   code = GL11.glGetError
@@ -20,7 +21,7 @@ def check_gl_error
   end
 end
 
-height_field = HeightField.new(1, 1, 0.2)
+height_field = HeightField.new(1, 1, 0.07)
 height_field.loadFromImage('assets/height_test_100x100.jpg')
 terrain_mesh = TerrainMesh.new(height_field, 1)
 terrain_mesh.generateMesh(0, 0, 1, 1)
@@ -87,6 +88,19 @@ check_gl_error
 GL15.glBindBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, 0)
 check_gl_error
 
+# Textures
+
+dirt_texture = Texture.new('assets/textures/dirt_00.jpg')
+
+#java_import 'org.lwjgl.BufferUtils'
+#tmp_buf = BufferUtils.createByteBuffer(700 * 700 * 4 * 4)
+#GL11.glBindTexture(GL11::GL_TEXTURE_2D, dirt_texture.textureId)
+#GL11.glGetTexImage(GL11::GL_TEXTURE_2D, 0, GL11::GL_RGBA, GL11::GL_UNSIGNED_BYTE, tmp_buf)
+#bytes = ''
+#16.times do |i|
+#  puts tmp_buf.get(i).inspect
+#end
+
 # Shaders
 
 def create_shader(type, path)
@@ -118,6 +132,8 @@ end
 position_attr_index = GL20.glGetAttribLocation program_id, "position"
 check_gl_error
 normal_attr_index =   GL20.glGetAttribLocation program_id, "normal"
+check_gl_error
+dirt_attr_index =   GL20.glGetUniformLocation program_id, "dirt"
 check_gl_error
 
 GL11.glClearColor(0.8, 0.85, 1, 0)
@@ -163,6 +179,8 @@ until Display.isCloseRequested
   check_gl_error
   GL15.glBindBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, elem_buffer_id)
   check_gl_error
+  dirt_texture.bind(dirt_attr_index, 0)
+  check_gl_error
   
   # Attribute pointers
   # index, size, type, normalized, stride, offset
@@ -189,49 +207,25 @@ until Display.isCloseRequested
   GL15.glBindBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, 0)
   check_gl_error
   
-  GL11.glBegin(GL11::GL_LINES)
-  GL20.glVertexAttrib3d(position_attr_index, 0, 0, 0)
-  GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
-  GL20.glVertexAttrib3d(position_attr_index, 0, 0, 200)
-  GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
-  
-  GL20.glVertexAttrib3d(position_attr_index, 0, 0, 200)
-  GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
-  GL20.glVertexAttrib3d(position_attr_index, 3, 0, 190)
-  GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
-  
-  GL20.glVertexAttrib3d(position_attr_index, 0, 0, 200)
-  GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
-  GL20.glVertexAttrib3d(position_attr_index, -3, 0, 190)
-  GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
-  GL11.glEnd
-  check_gl_error
-  
   if false
-    GL11.glColor3d(1, 0, 0)
-    GL11.glPointSize(5.0)
-    check_gl_error
+    # Draw the Z axis
+    GL11.glBegin(GL11::GL_LINES)
+    GL20.glVertexAttrib3d(position_attr_index, 0, 0, 0)
+    GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
+    GL20.glVertexAttrib3d(position_attr_index, 0, 0, 200)
+    GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
     
-    GL11.glBegin(GL11::GL_POINTS)
-    terrain_mesh.verts.each do |row|
-      row.each do |vert|
-        GL11.glVertex3d(vert.position.x, vert.position.y, vert.position.z)
-      end
-    end
+    GL20.glVertexAttrib3d(position_attr_index, 0, 0, 200)
+    GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
+    GL20.glVertexAttrib3d(position_attr_index, 3, 0, 190)
+    GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
+    
+    GL20.glVertexAttrib3d(position_attr_index, 0, 0, 200)
+    GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
+    GL20.glVertexAttrib3d(position_attr_index, -3, 0, 190)
+    GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
     GL11.glEnd
     check_gl_error
-    
-    terrain_mesh.verts.each do |row|
-      row.each do |vert|
-        GL11.glBegin(GL11::GL_LINES)
-        GL11.glVertex3d(vert.position.x, vert.position.y, vert.position.z)
-        ray_end = Vector3d.new(vert.position)
-        ray_end.add(vert.normal)
-        GL11.glVertex3d(ray_end.x, ray_end.y, ray_end.z)
-        GL11.glEnd
-        check_gl_error
-      end
-    end
   end
   
   Display.update

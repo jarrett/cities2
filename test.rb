@@ -1,6 +1,8 @@
 require 'java'
 require 'jar/lwjgl.jar'
 require 'jar/cities.jar'
+require './shader'
+require './program'
 
 java_import 'org.lwjgl.opengl.Display'
 java_import 'org.lwjgl.opengl.DisplayMode'
@@ -31,15 +33,15 @@ Display.create
 Display.setTitle('Cities')
 
 # Attribute buffer setup
-attr_buffer_id = GL15.glGenBuffers()
+ground_attr_buffer_id = GL15.glGenBuffers()
 check_gl_error
-GL15.glBindBuffer(GL15::GL_ARRAY_BUFFER, attr_buffer_id)
+GL15.glBindBuffer(GL15::GL_ARRAY_BUFFER, ground_attr_buffer_id)
 check_gl_error
 # Must call glBufferData, or else the buffer will not be properly initialized for glMapBuffer
 # 6 elements per vertex, 8 bytes per element
-GL15.glBufferData(GL15::GL_ARRAY_BUFFER, (terrain_mesh.rows * terrain_mesh.cols) * 6 * 8 * 10, GL15::GL_STATIC_DRAW)
+GL15.glBufferData(GL15::GL_ARRAY_BUFFER, (terrain_mesh.rows * terrain_mesh.cols) * 6 * 8, GL15::GL_STATIC_DRAW)
 check_gl_error
-byte_buffer = GL15.glMapBuffer(GL15::GL_ARRAY_BUFFER, GL15::GL_WRITE_ONLY, (terrain_mesh.rows * terrain_mesh.cols) * 6 * 8 * 10, nil).asDoubleBuffer
+byte_buffer = GL15.glMapBuffer(GL15::GL_ARRAY_BUFFER, GL15::GL_WRITE_ONLY, (terrain_mesh.rows * terrain_mesh.cols) * 6 * 8, nil).asDoubleBuffer
 check_gl_error
 byte_buffer.rewind
 terrain_mesh.verts.each do |row|
@@ -48,7 +50,6 @@ terrain_mesh.verts.each do |row|
       [
         vert.position.x, vert.position.y, vert.position.z,
         vert.normal.x, vert.normal.y, vert.normal.z
-        #vert.position.x, vert.position.y, vert.position.z
       ].to_java(:double)
     )
   end
@@ -59,15 +60,15 @@ GL15.glBindBuffer(GL15::GL_ARRAY_BUFFER, 0)
 check_gl_error
 
 # Element buffer setup
-elem_buffer_id = GL15.glGenBuffers()
+ground_elem_buffer_id = GL15.glGenBuffers()
 check_gl_error
-GL15.glBindBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, elem_buffer_id)
+GL15.glBindBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, ground_elem_buffer_id)
 check_gl_error
 # Must call glBufferData, or else the buffer will not be properly initialized for glMapBuffer
 # 2 triangles per square, 3 indices per triangle, 4 bytes per index
-GL15.glBufferData(GL15::GL_ELEMENT_ARRAY_BUFFER, terrain_mesh.squares * 2 * 3 * 4 * 10, GL15::GL_STATIC_DRAW)
+GL15.glBufferData(GL15::GL_ELEMENT_ARRAY_BUFFER, terrain_mesh.squares * 2 * 3 * 4, GL15::GL_STATIC_DRAW)
 check_gl_error
-byte_buffer = GL15.glMapBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, GL15::GL_WRITE_ONLY, terrain_mesh.squares * 2 * 3 * 4 * 10, nil).asIntBuffer
+byte_buffer = GL15.glMapBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, GL15::GL_WRITE_ONLY, terrain_mesh.squares * 2 * 3 * 4, nil).asIntBuffer
 byte_buffer.rewind
 (terrain_mesh.rows - 1).times do |row|
   (terrain_mesh.cols - 1).times do |col|
@@ -89,52 +90,10 @@ GL15.glBindBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, 0)
 check_gl_error
 
 # Textures
-
 dirt_texture = Texture.new('assets/textures/dirt_00.jpg')
 
-#java_import 'org.lwjgl.BufferUtils'
-#tmp_buf = BufferUtils.createByteBuffer(700 * 700 * 4 * 4)
-#GL11.glBindTexture(GL11::GL_TEXTURE_2D, dirt_texture.textureId)
-#GL11.glGetTexImage(GL11::GL_TEXTURE_2D, 0, GL11::GL_RGBA, GL11::GL_UNSIGNED_BYTE, tmp_buf)
-#bytes = ''
-#16.times do |i|
-#  puts tmp_buf.get(i).inspect
-#end
-
 # Shaders
-
-def create_shader(type, path)
-  shader_id = GL20.glCreateShader(type);
-  check_gl_error
-  GL20.glShaderSource(shader_id, File.read(path));
-  check_gl_error
-  GL20.glCompileShader(shader_id);
-  if GL20.glGetShader(shader_id, GL20::GL_COMPILE_STATUS) != 1
-    raise("Error in " + path + ": " + GL20.glGetShaderInfoLog(shader_id, 10000).inspect)
-  end
-  shader_id;
-end
-
-vert_shader_id = create_shader(GL20::GL_VERTEX_SHADER, 'shaders/test_vert.glsl')
-check_gl_error
-frag_shader_id = create_shader(GL20::GL_FRAGMENT_SHADER, 'shaders/test_frag.glsl')
-check_gl_error
-program_id = GL20.glCreateProgram
-GL20.glAttachShader(program_id, vert_shader_id)
-check_gl_error
-GL20.glAttachShader(program_id, frag_shader_id)
-check_gl_error
-GL20.glLinkProgram(program_id)
-if GL20.glGetProgram(program_id, GL20::GL_LINK_STATUS) != 1
-  raise("Error linking GLSL program: " + GL20.glGetProgramInfoLog(program_id, 10000).inspect)
-end
-
-position_attr_index = GL20.glGetAttribLocation program_id, "position"
-check_gl_error
-normal_attr_index =   GL20.glGetAttribLocation program_id, "normal"
-check_gl_error
-dirt_attr_index =   GL20.glGetUniformLocation program_id, "dirt"
-check_gl_error
+program = OpenGL::Program.new('shaders/test_vert.glsl', 'shaders/ground_frag.glsl')
 
 GL11.glClearColor(0.8, 0.85, 1, 0)
 check_gl_error
@@ -148,7 +107,6 @@ rot_z = 0
 rot_x = 0
 trans_lr = 0
 trans_ud = 0
-  
 
 until Display.isCloseRequested
   GL11.glClear(GL11::GL_COLOR_BUFFER_BIT | GL11::GL_DEPTH_BUFFER_BIT)
@@ -171,34 +129,34 @@ until Display.isCloseRequested
   Camera.set(800, 600, zoom, trans_lr, trans_ud, rot_z, rot_x)
   
   # Use shader program
-  GL20.glUseProgram(program_id)
+  GL20.glUseProgram(program.id)
   check_gl_error
   
   # Bind
-  GL15.glBindBuffer(GL15::GL_ARRAY_BUFFER, attr_buffer_id)
+  GL15.glBindBuffer(GL15::GL_ARRAY_BUFFER, ground_attr_buffer_id)
   check_gl_error
-  GL15.glBindBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, elem_buffer_id)
+  GL15.glBindBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, ground_elem_buffer_id)
   check_gl_error
-  dirt_texture.bind(dirt_attr_index, 0)
+  dirt_texture.bind(program.uni_index('dirt'), 0)
   check_gl_error
   
   # Attribute pointers
   # index, size, type, normalized, stride, offset
   # Stride: 2 vectors * 3 components per vector * 8 bytes per component
   # Offset for normals: 3 components per vector * 8 bytes per component
-  GL20.glVertexAttribPointer(position_attr_index, 3, GL11::GL_DOUBLE, false, 2 * 3 * 8, 0)
+  GL20.glVertexAttribPointer(program.attr_index('position'), 3, GL11::GL_DOUBLE, false, 2 * 3 * 8, 0)
   check_gl_error
-  GL20.glEnableVertexAttribArray(position_attr_index)
+  GL20.glEnableVertexAttribArray(program.attr_index('position'))
   check_gl_error
-  GL20.glVertexAttribPointer(normal_attr_index, 3, GL11::GL_DOUBLE, false, 2 * 3 * 8, 3 * 8)
+  GL20.glVertexAttribPointer(program.attr_index('normal'), 3, GL11::GL_DOUBLE, false, 2 * 3 * 8, 3 * 8)
   check_gl_error
-  GL20.glEnableVertexAttribArray(normal_attr_index)
+  GL20.glEnableVertexAttribArray(program.attr_index('normal'))
   check_gl_error
   
   # Draw
   # Count is the number of elements in the index buffer
-  # 2 triangles per square, 3 indices per triangle, 4 bytes per index
-  GL11.glDrawElements(GL11::GL_TRIANGLES, terrain_mesh.squares * 2 * 3 * 4, GL11::GL_UNSIGNED_INT, 0)
+  # 2 triangles per square, 3 indices per triangle
+  GL11.glDrawElements(GL11::GL_TRIANGLES, terrain_mesh.squares * 2 * 3, GL11::GL_UNSIGNED_INT, 0)
   check_gl_error
   
   # Unbind
@@ -210,20 +168,20 @@ until Display.isCloseRequested
   if false
     # Draw the Z axis
     GL11.glBegin(GL11::GL_LINES)
-    GL20.glVertexAttrib3d(position_attr_index, 0, 0, 0)
-    GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
-    GL20.glVertexAttrib3d(position_attr_index, 0, 0, 200)
-    GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
+    GL20.glVertexAttrib3d(program.attr_index('position'), 0, 0, 0)
+    GL20.glVertexAttrib3d(program.attr_index('normal'), 0, 0, 1)
+    GL20.glVertexAttrib3d(program.attr_index('position'), 0, 0, 200)
+    GL20.glVertexAttrib3d(program.attr_index('normal'), 0, 0, 1)
     
-    GL20.glVertexAttrib3d(position_attr_index, 0, 0, 200)
-    GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
-    GL20.glVertexAttrib3d(position_attr_index, 3, 0, 190)
-    GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
+    GL20.glVertexAttrib3d(program.attr_index('position'), 0, 0, 200)
+    GL20.glVertexAttrib3d(program.attr_index('normal'), 0, 0, 1)
+    GL20.glVertexAttrib3d(program.attr_index('position'), 3, 0, 190)
+    GL20.glVertexAttrib3d(program.attr_index('normal'), 0, 0, 1)
     
-    GL20.glVertexAttrib3d(position_attr_index, 0, 0, 200)
-    GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
-    GL20.glVertexAttrib3d(position_attr_index, -3, 0, 190)
-    GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
+    GL20.glVertexAttrib3d(program.attr_index('position'), 0, 0, 200)
+    GL20.glVertexAttrib3d(program.attr_index('normal'), 0, 0, 1)
+    GL20.glVertexAttrib3d(program.attr_index('position'), -3, 0, 190)
+    GL20.glVertexAttrib3d(program.attr_index('normal'), 0, 0, 1)
     GL11.glEnd
     check_gl_error
   end

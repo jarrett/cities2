@@ -97,6 +97,13 @@ class TerrainMesh {
     }
   }
   
+  protected void initBuffers() {
+    attrBuffer = new VBO(GL11.GL_ARRAY_BUFFER, VBO.DOUBLE);
+  }
+  
+  public void render() {
+  }
+  
   public int rows() {
     return rows;
   }
@@ -111,6 +118,7 @@ class TerrainMesh {
     cols = (int)Math.round(heightField.worldWidth() / squareSize);
     rows = (int)Math.round(heightField.worldLength() / squareSize);
     verts = new Vertex[cols][rows];
+    initBuffers();
   }
   
   // Ensures that the Z component is positive.

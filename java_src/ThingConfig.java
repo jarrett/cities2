@@ -11,7 +11,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import org.yaml.snakeyaml.Yaml;
 
-class Thing {
+class ThingConfig {
   String path;
   String name;
   Map spriteConfig;
@@ -81,7 +81,7 @@ class Thing {
   }
   
   // Path to its data files
-  public Thing(String name, String path) throws IOException {
+  public ThingConfig(String name, String path) throws IOException {
     this.path = path;
     this.name = name;
     if (usedNames.indexOf(name) != -1) {

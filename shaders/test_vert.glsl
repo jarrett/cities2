@@ -6,10 +6,9 @@ attribute vec3 normal;
 varying vec3 vNormal;
 varying vec3 vPosition;
 
-
 void main() {
+  gl_Position = gl_ModelViewProjectionMatrix * vec4(position.x, position.y, position.z, 1.0);
+  
   vPosition = position;
   vNormal = normal;
-  
-  gl_Position = gl_ModelViewProjectionMatrix * vec4(position.x, position.y, position.z, 1.0);
 }

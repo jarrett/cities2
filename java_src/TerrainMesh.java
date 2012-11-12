@@ -1,6 +1,8 @@
 package cities;
 
 import javax.vecmath.Vector3d;
+import java.nio.*;
+import org.lwjgl.opengl.*;
 import cities.HeightField;
 import cities.VBO;
 
@@ -30,23 +32,31 @@ class TerrainMesh {
   // That would be rows or columns minus one.
   int cols, rows; 
   double squareSize;
+  boolean fullyGenerated = false;
   public Vertex verts[][];
-  VBO attrBuffer;
-  VBO indexBuffer;
+  public VBO attrBuffer;
+  public VBO indexBuffer;
   
   public int cols() {
     return cols;
   }
   
-  // This DOES NOT update the data in vram. pushToVBO must be called for that purpose.
+  // The first time you call this, you must generate the entire mesh! Attempting to render a partially
+  // generated mesh will result in an error.
   public void generateMesh(double minX, double minY, double maxX, double maxY) {
     /* Determine the min and max rows and columns. Since the world coords passed in probably aren't
     coincident with vertices, err on the side of including more rows and columns. Clamp the mins and maxes
     within the bounds of the height field. */
-    int minCol = Math.min((int)Math.floor(minX / squareSize), 0);
-    int minRow = Math.min((int)Math.floor(minY / squareSize), 0);
-    int maxCol = Math.max((int)Math.ceil( maxX / squareSize), cols() - 1);
-    int maxRow = Math.max((int)Math.ceil( maxY / squareSize), rows() - 1);
+    int minCol = Math.max((int)Math.floor(minX / squareSize), 0);
+    int minRow = Math.max((int)Math.floor(minY / squareSize), 0);
+    int maxCol = Math.min((int)Math.ceil( maxX / squareSize), cols() - 1);
+    int maxRow = Math.min((int)Math.ceil( maxY / squareSize), rows() - 1);
+    
+    if (minCol == 0 && maxCol == cols() - 1 && minRow == 0 && maxRow == rows() - 1) {
+      fullyGenerated = true;
+    } else if (!fullyGenerated) {
+      throw new RuntimeException("Can't call generateMesh on a subset of the mesh until it has been fully generated at least once.");
+    }
     
     /* For each of the vertices in the range, bilinearly interpolate between pixels
     to determine the z coord. Expand the range by one in each direction (without going
@@ -98,14 +108,67 @@ class TerrainMesh {
   }
   
   protected void initBuffers() {
-    attrBuffer = new VBO(GL11.GL_ARRAY_BUFFER, VBO.DOUBLE);
+    // Attribute buffer
+    
+    // 6 elements per vertex
+    attrBuffer = new VBO(GL15.GL_ARRAY_BUFFER, VBO.DataType.DOUBLE, GL15.GL_DYNAMIC_DRAW, rows() * cols() * 6);
+    DoubleBuffer doubles = (DoubleBuffer) attrBuffer.map(GL15.GL_WRITE_ONLY);
+    for (int row = 0; row < verts.length; row++) {
+      for (int col = 0; col < verts[row].length; col++) {
+        Vertex vert = verts[row][col];
+        // position
+        doubles.put(vert.position.x);
+        doubles.put(vert.position.y);
+        doubles.put(vert.position.z);
+        // normal
+        doubles.put(vert.normal.x);
+        doubles.put(vert.normal.y);
+        doubles.put(vert.normal.z);
+      }
+    }
+    attrBuffer.unmap();
+    
+    // Index buffer
+    
+    // 2 triangles per square, three indices per triangle
+    indexBuffer = new VBO(GL15.GL_ELEMENT_ARRAY_BUFFER, VBO.DataType.INT, GL15.GL_STATIC_DRAW, squares() * 2 * 3);
+    IntBuffer ints = (IntBuffer) indexBuffer.map(GL15.GL_WRITE_ONLY);
+    for (int row = 0; row < rows() - 1; row++) {
+      for (int col = 0; col < cols() - 1; col++) {
+        int tl = (row * cols()) + col;
+        int tr = (row * cols()) + col + 1;
+        int bl = ((row + 1) * cols()) + col;
+        int br = ((row + 1) * cols()) + col + 1;
+        // top-left triangle
+        ints.put(tl);
+        ints.put(bl);
+        ints.put(tr);
+        // bottom-right triangle
+        ints.put(br);
+        ints.put(tr);
+        ints.put(bl);
+      }
+    }
   }
   
-  public void render() {
+  public void drawElements() {    
+    // Count is the number of elements in the index buffer
+    // 2 triangles per square, 3 indices per triangle
+    GL11.glDrawElements(GL11.GL_TRIANGLES, squares() * 2 * 3, GL11.GL_UNSIGNED_INT, 0);
   }
   
   public int rows() {
     return rows;
+  }
+  
+  public void setAttrPointers(int positionIndex, int normalIndex) {
+    // index, size, type, normalized, stride, offset
+    // Stride: 2 vectors * 3 components per vector * 8 bytes per component
+    // Offset for normals: 3 components per vector * 8 bytes per component
+    GL20.glVertexAttribPointer(positionIndex, 3, GL11.GL_DOUBLE, false, 2 * 3 * 8, 0);
+    GL20.glEnableVertexAttribArray(positionIndex);
+    GL20.glVertexAttribPointer(normalIndex, 3, GL11.GL_DOUBLE, false, 2 * 3 * 8, 3 * 8);
+    GL20.glEnableVertexAttribArray(normalIndex);
   }
   
   public int squares() {
@@ -118,7 +181,6 @@ class TerrainMesh {
     cols = (int)Math.round(heightField.worldWidth() / squareSize);
     rows = (int)Math.round(heightField.worldLength() / squareSize);
     verts = new Vertex[cols][rows];
-    initBuffers();
   }
   
   // Ensures that the Z component is positive.

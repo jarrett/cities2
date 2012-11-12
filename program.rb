@@ -1,7 +1,10 @@
 module OpenGL
   class Program
+    java_implements 'Program'
+    
     attr_reader :id
     
+    java_signature 'int attrIndex(String name)'
     def attr_index(name)
       @attr_indices[name] ||= GL20.glGetAttribLocation @id, name
     end
@@ -26,6 +29,11 @@ module OpenGL
     
     def uni_index(name)
       @uni_indices[name] ||= GL20.glGetUniformLocation @id, name
+    end
+    
+    java_signature 'void use()'
+    def use
+      GL20.glUseProgram(id)
     end
   end
 end

@@ -14,7 +14,7 @@ java_import 'cities.HeightField'
 java_import 'cities.TerrainMesh'
 java_import 'cities.Camera'
 java_import 'cities.Texture'
-#java_import 'javax.vecmath.Vector3d'
+java_import 'javax.vecmath.Vector3d'
 
 def check_gl_error
   code = GL11.glGetError
@@ -23,90 +23,58 @@ def check_gl_error
   end
 end
 
-height_field = HeightField.new(1, 1, 0.07)
-height_field.loadFromImage('assets/height_test_100x100.jpg')
-terrain_mesh = TerrainMesh.new(height_field, 1)
-terrain_mesh.generateMesh(0, 0, 1, 1)
+def draw_line(position_attr_index, normal_attr_index, from, to)
+  GL11.glLineWidth(4)
+  GL11.glBegin(GL11::GL_LINES)
+  GL20.glVertexAttrib3d(position_attr_index, from.x, from.y, from.z)
+  GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
+  GL20.glVertexAttrib3d(position_attr_index, to.x, to.y, to.z)
+  GL20.glVertexAttrib3d(normal_attr_index, 0, 0, 1)
+  GL11.glEnd
+  check_gl_error
+end
 
-Display.setDisplayMode(DisplayMode.new(800,600))
+Display.setDisplayMode(DisplayMode.new(1500,900))
 Display.create
 Display.setTitle('Cities')
 
-# Attribute buffer setup
-ground_attr_buffer_id = GL15.glGenBuffers()
-check_gl_error
-GL15.glBindBuffer(GL15::GL_ARRAY_BUFFER, ground_attr_buffer_id)
-check_gl_error
-# Must call glBufferData, or else the buffer will not be properly initialized for glMapBuffer
-# 6 elements per vertex, 8 bytes per element
-GL15.glBufferData(GL15::GL_ARRAY_BUFFER, (terrain_mesh.rows * terrain_mesh.cols) * 6 * 8, GL15::GL_STATIC_DRAW)
-check_gl_error
-byte_buffer = GL15.glMapBuffer(GL15::GL_ARRAY_BUFFER, GL15::GL_WRITE_ONLY, (terrain_mesh.rows * terrain_mesh.cols) * 6 * 8, nil).asDoubleBuffer
-check_gl_error
-byte_buffer.rewind
-terrain_mesh.verts.each do |row|
-  row.each do |vert|
-    byte_buffer.put(
-      [
-        vert.position.x, vert.position.y, vert.position.z,
-        vert.normal.x, vert.normal.y, vert.normal.z
-      ].to_java(:double)
-    )
-  end
-end
-GL15.glUnmapBuffer(GL15::GL_ARRAY_BUFFER)
-check_gl_error
-GL15.glBindBuffer(GL15::GL_ARRAY_BUFFER, 0)
-check_gl_error
+ground_height_field = HeightField.new(1, 1, 0.07)
+ground_height_field.loadFromImage('assets/height_test_river_100x100.jpg')
+ground_mesh = TerrainMesh.new(ground_height_field, 1)
+ground_mesh.generateMesh(0, 0, 100, 100)
+ground_mesh.initBuffers
 
-# Element buffer setup
-ground_elem_buffer_id = GL15.glGenBuffers()
-check_gl_error
-GL15.glBindBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, ground_elem_buffer_id)
-check_gl_error
-# Must call glBufferData, or else the buffer will not be properly initialized for glMapBuffer
-# 2 triangles per square, 3 indices per triangle, 4 bytes per index
-GL15.glBufferData(GL15::GL_ELEMENT_ARRAY_BUFFER, terrain_mesh.squares * 2 * 3 * 4, GL15::GL_STATIC_DRAW)
-check_gl_error
-byte_buffer = GL15.glMapBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, GL15::GL_WRITE_ONLY, terrain_mesh.squares * 2 * 3 * 4, nil).asIntBuffer
-byte_buffer.rewind
-(terrain_mesh.rows - 1).times do |row|
-  (terrain_mesh.cols - 1).times do |col|
-    tl = (row * terrain_mesh.cols) + col
-    tr = (row * terrain_mesh.cols) + col + 1
-    bl = ((row + 1) * terrain_mesh.cols) + col
-    br = ((row + 1) * terrain_mesh.cols) + col + 1
-    byte_buffer.put(
-      [
-        tl, bl, tr, # top-left triangle
-        br, tr, bl # bottom-right triangle
-      ].to_java(:int)
-    )
-  end
-end
-GL15.glUnmapBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER)
-check_gl_error
-GL15.glBindBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, 0)
-check_gl_error
+water_height_field = HeightField.new(1, 1, 0.03)
+water_height_field.loadFromImage('assets/water_height_100x100.jpg')
+water_mesh = TerrainMesh.new(water_height_field, 1)
+water_mesh.generateMesh(0, 0, 100, 100)
+water_mesh.initBuffers
 
 # Textures
-dirt_texture = Texture.new('assets/textures/dirt_00.jpg')
+grass_texture = Texture.new('assets/textures/grass_00.jpg')
+cliff_texture = Texture.new('assets/textures/cliff.jpg')
+rocky_grass_texture = Texture.new('assets/textures/rocky_grass.jpg')
+sand_texture = Texture.new('assets/textures/sand.jpg')
+ground_height_texture = Texture.new('assets/height_test_river_100x100.jpg')
+water_height_texture = Texture.new('assets/water_height_100x100.jpg')
+foam_texture = Texture.new('assets/textures/foam.jpg')
 
 # Shaders
-program = OpenGL::Program.new('shaders/test_vert.glsl', 'shaders/ground_frag.glsl')
+ground_program = OpenGL::Program.new('shaders/test_vert.glsl', 'shaders/ground_frag.glsl')
+water_program = OpenGL::Program.new('shaders/test_vert.glsl', 'shaders/water_frag.glsl')
 
 GL11.glClearColor(0.8, 0.85, 1, 0)
-check_gl_error
 GL11.glEnable(GL11::GL_DEPTH_TEST)
 GL11.glDepthMask(true)
 GL11.glDepthFunc(GL11::GL_LEQUAL)
-check_gl_error
+GL11.glEnable(GL11::GL_BLEND)
+GL11.glBlendFunc(GL11::GL_SRC_ALPHA, GL11::GL_ONE_MINUS_SRC_ALPHA)
 
-zoom = 100
-rot_z = 0
-rot_x = 0
+zoom = 10
+rot_z = 45
+rot_x = -45
 trans_lr = 0
-trans_ud = 0
+trans_ud = -50
 
 until Display.isCloseRequested
   GL11.glClear(GL11::GL_COLOR_BUFFER_BIT | GL11::GL_DEPTH_BUFFER_BIT)
@@ -126,65 +94,39 @@ until Display.isCloseRequested
     trans_lr += Mouse.getDX * 1.5 / zoom
     trans_ud += Mouse.getDY * 1.5 / zoom
   end
-  Camera.set(800, 600, zoom, trans_lr, trans_ud, rot_z, rot_x)
+  Camera.set(1500, 900, zoom, trans_lr, trans_ud, rot_z, rot_x)
   
-  # Use shader program
-  GL20.glUseProgram(program.id)
-  check_gl_error
+  ground_program.use
+  ground_mesh.attrBuffer.bind
+  ground_mesh.indexBuffer.bind
+  grass_texture.bind(ground_program.uni_index('grass'), 0)
+  cliff_texture.bind(ground_program.uni_index('cliff'), 1)
+  rocky_grass_texture.bind(ground_program.uni_index('rockyGrass'), 2)
+  sand_texture.bind(ground_program.uni_index('sand'), 3)
+  water_height_texture.bind(ground_program.uni_index('waterHeightMap'), 4)
+  ground_mesh.setAttrPointers(
+    ground_program.attr_index('position'),
+    ground_program.attr_index('normal')
+  )
+  ground_mesh.drawElements
   
-  # Bind
-  GL15.glBindBuffer(GL15::GL_ARRAY_BUFFER, ground_attr_buffer_id)
-  check_gl_error
-  GL15.glBindBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, ground_elem_buffer_id)
-  check_gl_error
-  dirt_texture.bind(program.uni_index('dirt'), 0)
-  check_gl_error
-  
-  # Attribute pointers
-  # index, size, type, normalized, stride, offset
-  # Stride: 2 vectors * 3 components per vector * 8 bytes per component
-  # Offset for normals: 3 components per vector * 8 bytes per component
-  GL20.glVertexAttribPointer(program.attr_index('position'), 3, GL11::GL_DOUBLE, false, 2 * 3 * 8, 0)
-  check_gl_error
-  GL20.glEnableVertexAttribArray(program.attr_index('position'))
-  check_gl_error
-  GL20.glVertexAttribPointer(program.attr_index('normal'), 3, GL11::GL_DOUBLE, false, 2 * 3 * 8, 3 * 8)
-  check_gl_error
-  GL20.glEnableVertexAttribArray(program.attr_index('normal'))
-  check_gl_error
-  
-  # Draw
-  # Count is the number of elements in the index buffer
-  # 2 triangles per square, 3 indices per triangle
-  GL11.glDrawElements(GL11::GL_TRIANGLES, terrain_mesh.squares * 2 * 3, GL11::GL_UNSIGNED_INT, 0)
-  check_gl_error
-  
-  # Unbind
-  GL15.glBindBuffer(GL15::GL_ARRAY_BUFFER, 0)
-  check_gl_error
-  GL15.glBindBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, 0)
-  check_gl_error
-  
-  if false
-    # Draw the Z axis
-    GL11.glBegin(GL11::GL_LINES)
-    GL20.glVertexAttrib3d(program.attr_index('position'), 0, 0, 0)
-    GL20.glVertexAttrib3d(program.attr_index('normal'), 0, 0, 1)
-    GL20.glVertexAttrib3d(program.attr_index('position'), 0, 0, 200)
-    GL20.glVertexAttrib3d(program.attr_index('normal'), 0, 0, 1)
-    
-    GL20.glVertexAttrib3d(program.attr_index('position'), 0, 0, 200)
-    GL20.glVertexAttrib3d(program.attr_index('normal'), 0, 0, 1)
-    GL20.glVertexAttrib3d(program.attr_index('position'), 3, 0, 190)
-    GL20.glVertexAttrib3d(program.attr_index('normal'), 0, 0, 1)
-    
-    GL20.glVertexAttrib3d(program.attr_index('position'), 0, 0, 200)
-    GL20.glVertexAttrib3d(program.attr_index('normal'), 0, 0, 1)
-    GL20.glVertexAttrib3d(program.attr_index('position'), -3, 0, 190)
-    GL20.glVertexAttrib3d(program.attr_index('normal'), 0, 0, 1)
-    GL11.glEnd
-    check_gl_error
-  end
+  water_program.use
+  water_mesh.attrBuffer.bind
+  water_mesh.indexBuffer.bind
+  #water_normal_texture.bind(water_program.uni_index('normalMap'), 0)
+  water_height_texture.bind(water_program.uni_index('waterHeightMap'), 1)
+  ground_height_texture.bind(water_program.uni_index('groundHeightMap'), 2)
+  foam_texture.bind(water_program.uni_index('foam'), 3)
+  #cam_dir = Camera.direction
+  #GL20.glUniform3f(
+  #  water_program.uni_index('camDir'),
+  #  cam_dir.x, cam_dir.y, cam_dir.z
+  #)
+  water_mesh.setAttrPointers(
+    water_program.attr_index('position'),
+    water_program.attr_index('normal')
+  )
+  water_mesh.drawElements
   
   Display.update
   check_gl_error

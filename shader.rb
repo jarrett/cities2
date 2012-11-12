@@ -9,7 +9,7 @@ module OpenGL
       check_gl_error
       GL20.glCompileShader(@id)
       if GL20.glGetShader(@id, GL20::GL_COMPILE_STATUS) != 1
-        raise("Error in " + path + ": " + GL20.glGetShaderInfoLog(@id, 10000).inspect)
+        raise("Error in #{path}: #{GL20.glGetShaderInfoLog(@id, 10000).inspect}")
       end
       @id
     end

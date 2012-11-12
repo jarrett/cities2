@@ -88,6 +88,9 @@ class Texture {
   
   protected BufferedImage[] mipmaps() throws java.io.IOException {
     BufferedImage img0 = ImageIO.read(new File(path));
+    if (img0 == null) {
+      throw new RuntimeException("Could not load image: " + path);
+    }
     int count = mipmapCount(img0);
     BufferedImage[] images = new BufferedImage[count];
     images[0] = img0;

@@ -14,6 +14,7 @@ java_import 'cities.HeightField'
 java_import 'cities.TerrainMesh'
 java_import 'cities.Camera'
 java_import 'cities.Texture'
+java_import 'cities.Thing'
 java_import 'javax.vecmath.Vector3d'
 
 def check_gl_error
@@ -37,6 +38,8 @@ end
 Display.setDisplayMode(DisplayMode.new(1500,900))
 Display.create
 Display.setTitle('Cities')
+
+tall_grass = Thing.new('tall_grass_2', 'assets/things/tall_grass_2.zip')
 
 ground_height_field = HeightField.new(1, 1, 0.07)
 ground_height_field.loadFromImage('assets/height_test_river_100x100.jpg')

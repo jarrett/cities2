@@ -9,7 +9,7 @@ task :java do
     )
   end
   puts 'Compiling'
-  if system 'javac ' + outdated_sources.join(' ') + ' -d java_classes -classpath "jar/*"'
+  if system 'javac ' + outdated_sources.join(' ') + ' -d java_classes -classpath "jar/*" -Xlint:unchecked'
     puts 'Jarring'
     class_files = Dir.glob('java_classes/**/*.class').collect do |path|
       path.sub!('java_classes/', '')

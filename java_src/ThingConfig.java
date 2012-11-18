@@ -60,22 +60,22 @@ class ThingConfig {
     Map dirConfig = (Map) spriteConfig.get(direction);
     if (dirConfig == null) { throw new RuntimeException(name + "_sprite_config.yml does not include " + direction); }
     
-    ArrayList<Double> tl = (ArrayList<Double>) dirConfig.get("top_left");
-    if (tl == null) { throw new RuntimeException(name + "_sprite_config.yml does not include top_left"); }
+    ArrayList<Double> bl = (ArrayList<Double>) dirConfig.get("bottom_left");
+    if (bl == null) { throw new RuntimeException(name + "_sprite_config.yml does not include bottom_left"); }
     ArrayList<Double> tm = (ArrayList<Double>) dirConfig.get("top_middle");
     if (tm == null) { throw new RuntimeException(name + "_sprite_config.yml does not include top_middle"); }
-    ArrayList<Double> br = (ArrayList<Double>) dirConfig.get("bottom_right");
-    if (br == null) { throw new RuntimeException(name + "_sprite_config.yml does not include bottom_right"); }
+    ArrayList<Double> tr = (ArrayList<Double>) dirConfig.get("bottom_right");
+    if (tr == null) { throw new RuntimeException(name + "_sprite_config.yml does not include top_right"); }
     ArrayList<Double> bm = (ArrayList<Double>) dirConfig.get("bottom_middle");
     if (bm == null) { throw new RuntimeException(name + "_sprite_config.yml does not include bottom_middle"); }
     
-    int leftCrop = (int) Math.max(Math.ceil(tl.get(0) * img.getWidth() ), 0);
+    int leftCrop = (int) Math.max(Math.ceil(bl.get(0) * img.getWidth() ), 0);
     int topCrop =  (int) Math.max(Math.ceil(tm.get(1) * img.getHeight()), 0);
     
     return img.getSubimage(
       leftCrop,
       topCrop,
-      (int) Math.min(Math.ceil(br.get(0) * img.getWidth() ), img.getWidth()  - (1 + leftCrop)),  // right crop
+      (int) Math.min(Math.ceil(tr.get(0) * img.getWidth() ), img.getWidth()  - (1 + leftCrop)),  // right crop
       (int) Math.min(Math.ceil(bm.get(1) * img.getHeight()), img.getHeight() - (1 + topCrop ))   // bottom crop
     );
   }

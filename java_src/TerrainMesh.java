@@ -1,27 +1,29 @@
 package cities;
 
-import javax.vecmath.Vector3d;
+import javax.vecmath.Vector3f;
 import java.nio.*;
 import org.lwjgl.opengl.*;
+import org.lwjgl.BufferUtils;
 import cities.HeightField;
-import cities.VBO;
+import cities.GLError;
+import cities.GLProgram;
 
 class TerrainMesh {
   static class Vertex {
-    public Vector3d position;
-    public Vector3d normal;
+    public Vector3f position;
+    public Vector3f normal;
     
     public Vertex() {
-      this.position = new Vector3d(0, 0, 0);
-      this.normal = new Vector3d(0, 0, 0);
+      this.position = new Vector3f(0, 0, 0);
+      this.normal = new Vector3f(0, 0, 0);
     }
     
-    public Vertex(Vector3d position) {
+    public Vertex(Vector3f position) {
       this.position = position;
-      this.normal = new Vector3d(0, 0, 0);
+      this.normal = new Vector3f(0, 0, 0);
     }
     
-    public Vertex(Vector3d position, Vector3d normal) {
+    public Vertex(Vector3f position, Vector3f normal) {
       this.position = position;
       this.normal = normal;
     }
@@ -31,11 +33,11 @@ class TerrainMesh {
   // Rows and columns define the number of vertices. This is NOT the number of squares.
   // That would be rows or columns minus one.
   int cols, rows; 
-  double squareSize;
+  GLProgram program;
+  float squareSize;
   boolean fullyGenerated = false;
   public Vertex verts[][];
-  public VBO attrBuffer;
-  public VBO indexBuffer;
+  public int vaoId, attrVBOId, indexVBOId;
   
   public int cols() {
     return cols;
@@ -43,7 +45,7 @@ class TerrainMesh {
   
   // The first time you call this, you must generate the entire mesh! Attempting to render a partially
   // generated mesh will result in an error.
-  public void generateMesh(double minX, double minY, double maxX, double maxY) {
+  public void generateMesh(float minX, float minY, float maxX, float maxY) {
     /* Determine the min and max rows and columns. Since the world coords passed in probably aren't
     coincident with vertices, err on the side of including more rows and columns. Clamp the mins and maxes
     within the bounds of the height field. */
@@ -66,7 +68,7 @@ class TerrainMesh {
         // If the vertex has not been initialized, initialize it. This always executes the first time
         // the mesh is generated.
         if (verts[row][col] == null) {
-          verts[row][col] = new Vertex(new Vector3d(squareSize * col, squareSize * row, 0));
+          verts[row][col] = new Vertex(new Vector3f(squareSize * col, squareSize * row, 0));
         }
         verts[row][col].position.z = heightField.atXY(
           // Either of these values could be slightly outside the height field's range.
@@ -80,7 +82,7 @@ class TerrainMesh {
     /* Calculate normals for each vertex in the range by averaging the normals of all neighboring triangles. */
     for (int row = minRow; row <= maxRow; row++) {
       for (int col = minCol; col <= maxCol; col++) {
-        Vector3d averageNormal = new Vector3d(0, 0, 0);
+        Vector3f averageNormal = new Vector3f(0, 0, 0);
         if (col > 0 && row > 0) { // Upper left
           averageNormal.add(
             triNormal(verts[col][row].position, verts[col - 1][row].position, verts[col][row - 1].position)
@@ -108,31 +110,47 @@ class TerrainMesh {
   }
   
   protected void initBuffers() {
+    // Set up VAO
+    vaoId = GL30.glGenVertexArrays();
+    GL30.glBindVertexArray(vaoId);
+    
     // Attribute buffer
     
-    // 6 elements per vertex
-    attrBuffer = new VBO(GL15.GL_ARRAY_BUFFER, VBO.DataType.DOUBLE, GL15.GL_DYNAMIC_DRAW, rows() * cols() * 6);
-    DoubleBuffer doubles = (DoubleBuffer) attrBuffer.map(GL15.GL_WRITE_ONLY);
+    FloatBuffer floats = BufferUtils.createFloatBuffer(rows() * cols() * 6); // 6 elements per vertex
     for (int row = 0; row < verts.length; row++) {
       for (int col = 0; col < verts[row].length; col++) {
         Vertex vert = verts[row][col];
         // position
-        doubles.put(vert.position.x);
-        doubles.put(vert.position.y);
-        doubles.put(vert.position.z);
+        floats.put(vert.position.x);
+        floats.put(vert.position.y);
+        floats.put(vert.position.z);
         // normal
-        doubles.put(vert.normal.x);
-        doubles.put(vert.normal.y);
-        doubles.put(vert.normal.z);
+        floats.put(vert.normal.x);
+        floats.put(vert.normal.y);
+        floats.put(vert.normal.z);
       }
     }
-    attrBuffer.unmap();
+    floats.rewind();
+    attrVBOId = GL15.glGenBuffers();
+    GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, attrVBOId);
+    GL15.glBufferData(GL15.GL_ARRAY_BUFFER, floats, GL15.GL_DYNAMIC_DRAW);
+    if (GL15.glGetBufferParameter(GL15.GL_ARRAY_BUFFER, GL15.GL_BUFFER_SIZE) == 0) {
+      throw new RuntimeException("glBufferData called, but GL_ARRAY_BUFFER size is still 0");
+    }
+    
+    // index, size, type, normalized, stride, offset
+    // Stride: 2 vectors * 3 components per vector * 4 bytes per component
+    // Offset for normals: 3 components per vector * 4 bytes per component
+    int positionIndex = program.attrIndex("position");
+    int normalIndex = program.attrIndex("normal");
+    GL20.glEnableVertexAttribArray(positionIndex);
+    GL20.glVertexAttribPointer(positionIndex, 3, GL11.GL_FLOAT, false, 2 * 3 * 4, 0);
+    GL20.glEnableVertexAttribArray(normalIndex);
+    GL20.glVertexAttribPointer(normalIndex, 3, GL11.GL_FLOAT, false, 2 * 3 * 4, 3 * 4);
     
     // Index buffer
     
-    // 2 triangles per square, three indices per triangle
-    indexBuffer = new VBO(GL15.GL_ELEMENT_ARRAY_BUFFER, VBO.DataType.INT, GL15.GL_STATIC_DRAW, squares() * 2 * 3);
-    IntBuffer ints = (IntBuffer) indexBuffer.map(GL15.GL_WRITE_ONLY);
+    IntBuffer ints = BufferUtils.createIntBuffer(squares() * 2 * 3); // 2 triangles per square, three indices per triangle
     for (int row = 0; row < rows() - 1; row++) {
       for (int col = 0; col < cols() - 1; col++) {
         int tl = (row * cols()) + col;
@@ -149,45 +167,49 @@ class TerrainMesh {
         ints.put(bl);
       }
     }
+    ints.rewind();
+    indexVBOId = GL15.glGenBuffers();
+    GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, indexVBOId);
+    GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER, ints, GL15.GL_STATIC_DRAW);
+    if (GL15.glGetBufferParameter(GL15.GL_ELEMENT_ARRAY_BUFFER, GL15.GL_BUFFER_SIZE) == 0) {
+      throw new RuntimeException("glBufferData called, but GL_ELEMENT_ARRAY_BUFFER size is still 0");
+    }
+    
+    GL30.glBindVertexArray(0);
   }
   
-  public void drawElements() {    
+  public void render() {
+    GL30.glBindVertexArray(vaoId);
+    program.use();
+    program.bindTextures();
     // Count is the number of elements in the index buffer
     // 2 triangles per square, 3 indices per triangle
     GL11.glDrawElements(GL11.GL_TRIANGLES, squares() * 2 * 3, GL11.GL_UNSIGNED_INT, 0);
+    GL30.glBindVertexArray(0);
   }
   
   public int rows() {
     return rows;
-  }
-  
-  public void setAttrPointers(int positionIndex, int normalIndex) {
-    // index, size, type, normalized, stride, offset
-    // Stride: 2 vectors * 3 components per vector * 8 bytes per component
-    // Offset for normals: 3 components per vector * 8 bytes per component
-    GL20.glVertexAttribPointer(positionIndex, 3, GL11.GL_DOUBLE, false, 2 * 3 * 8, 0);
-    GL20.glEnableVertexAttribArray(positionIndex);
-    GL20.glVertexAttribPointer(normalIndex, 3, GL11.GL_DOUBLE, false, 2 * 3 * 8, 3 * 8);
-    GL20.glEnableVertexAttribArray(normalIndex);
-  }
+  } 
   
   public int squares() {
     return (rows() - 1) * (cols() - 1);
   }
   
-  public TerrainMesh(HeightField heightField, double squareSize) {
+  public TerrainMesh(HeightField heightField, float squareSize, GLProgram program) {
     this.heightField = heightField;
     this.squareSize = squareSize;
+    this.program = program;
     cols = (int)Math.round(heightField.worldWidth() / squareSize);
     rows = (int)Math.round(heightField.worldLength() / squareSize);
     verts = new Vertex[cols][rows];
   }
   
   // Ensures that the Z component is positive.
-  public static Vector3d triNormal(Vector3d v1, Vector3d v2, Vector3d v3) {
-    Vector3d side1 = new Vector3d();
-    Vector3d side2 = new Vector3d();
-    Vector3d norm = new Vector3d();
+  public static Vector3f triNormal(Vector3f v1, Vector3f v2, Vector3f v3) {
+    Vector3f side1 = new Vector3f();
+    Vector3f side2 = new Vector3f();
+    Vector3f norm = new Vector3f();
     
     side1.sub(v1, v2);
     side2.sub(v1, v3);

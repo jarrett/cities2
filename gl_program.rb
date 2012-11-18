@@ -40,7 +40,7 @@ class GLProgram
   java_signature 'public int uniIndex(String name)'
   def uni_index(name)
     @uni_indices[name] ||= GL20.glGetUniformLocation @id, name
-    @uni_indices[name] == -1 ? raise("Index for attribute #{name} was -1") : @uni_indices[name]
+    @uni_indices[name] == -1 ? raise("Index for uniform #{name} was -1") : @uni_indices[name]
   end
   
   java_signature 'public void use()'

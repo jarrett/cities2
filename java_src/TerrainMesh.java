@@ -1,12 +1,14 @@
 package cities;
 
 import javax.vecmath.Vector3f;
+import javax.vecmath.Matrix4f;
 import java.nio.*;
 import org.lwjgl.opengl.*;
 import org.lwjgl.BufferUtils;
 import cities.HeightField;
 import cities.GLError;
 import cities.GLProgram;
+import cities.MatrixUtils;
 
 class TerrainMesh {
   static class Vertex {
@@ -38,6 +40,9 @@ class TerrainMesh {
   boolean fullyGenerated = false;
   public Vertex verts[][];
   public int vaoId, attrVBOId, indexVBOId;
+  Matrix4f camera;
+  int cameraUniIndex;
+  FloatBuffer cameraFloats; // Saved as an instance variable so we don't have to create a new native buffer on each render call
   
   public int cols() {
     return cols;
@@ -182,6 +187,8 @@ class TerrainMesh {
     GL30.glBindVertexArray(vaoId);
     program.use();
     program.bindTextures();
+    MatrixUtils.copyToBuffer(camera, cameraFloats);
+    GL20.glUniformMatrix4(cameraUniIndex, false, cameraFloats);
     // Count is the number of elements in the index buffer
     // 2 triangles per square, 3 indices per triangle
     GL11.glDrawElements(GL11.GL_TRIANGLES, squares() * 2 * 3, GL11.GL_UNSIGNED_INT, 0);
@@ -191,6 +198,10 @@ class TerrainMesh {
   public int rows() {
     return rows;
   } 
+  
+  public void setCamera(Matrix4f camera) {
+    this.camera = camera;
+  }
   
   public int squares() {
     return (rows() - 1) * (cols() - 1);
@@ -203,6 +214,8 @@ class TerrainMesh {
     cols = (int)Math.round(heightField.worldWidth() / squareSize);
     rows = (int)Math.round(heightField.worldLength() / squareSize);
     verts = new Vertex[cols][rows];
+    cameraUniIndex = program.uniIndex("camera");
+    cameraFloats = BufferUtils.createFloatBuffer(16);
   }
   
   // Ensures that the Z component is positive.

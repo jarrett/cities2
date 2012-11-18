@@ -106,8 +106,8 @@ GL11.glBlendFunc(GL11::GL_SRC_ALPHA, GL11::GL_ONE_MINUS_SRC_ALPHA)
 check_gl_error
 
 zoom = 10
-rot_z = 45
-rot_x = -45
+rot_z = Math::PI / 4
+rot_x = Math::PI / -4
 trans_lr = 0
 trans_ud = -50
 
@@ -117,11 +117,11 @@ until Display.isCloseRequested
   
   zoom = (1.1 ** (Mouse.getDWheel * 0.002)) * zoom
   if Mouse.isButtonDown(0)
-    rot_z += Mouse.getDX * 0.17
-    rot_z = rot_z % 360
-    rot_x -= Mouse.getDY * 0.17
-    if rot_x < -90
-      rot_x = -90
+    rot_z += Mouse.getDX * 0.003
+    rot_z = rot_z % (Math::PI * 2)
+    rot_x -= Mouse.getDY * 0.003
+    if rot_x < Math::PI / (-2)
+      rot_x = Math::PI / (-2)
     elsif rot_x > 0
       rot_x = 0
     end
@@ -129,10 +129,12 @@ until Display.isCloseRequested
     trans_lr += Mouse.getDX * 1.5 / zoom
     trans_ud += Mouse.getDY * 1.5 / zoom
   end
-  Camera.set(1500, 900, zoom, trans_lr, trans_ud, rot_z, rot_x)
+  cam_matrix = Camera.matrix(1500, 900, zoom, trans_lr, trans_ud, rot_z, rot_x)
   
+  ground_mesh.setCamera(cam_matrix)
   ground_mesh.render
   
+  water_mesh.setCamera(cam_matrix)
   water_mesh.render
   
   Display.update

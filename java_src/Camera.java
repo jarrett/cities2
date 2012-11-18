@@ -6,9 +6,7 @@ import org.lwjgl.opengl.GL11;
 import cities.GLError;
 import cities.MatrixUtils;
 
-class Camera {
-  //public static Matrix4d inverseRotation;
-  
+class Camera {  
   // viewportHeight and viewportWidth are given in pixels. viewportZoom = pixels per OpenGL unit.
   // Angles are given in radians.
   public static Matrix4f matrix(int viewportWidth, int viewportHeight, float viewportZoom, float transLR, float transUD, float zAngle, float xAngle) {
@@ -47,35 +45,5 @@ class Camera {
     proj.mul(rotZ);
     
     return proj;
-    
-    //cameraRotate(transLR, transUD);
-    
-    //GL11.glMatrixMode(GL11.GL_PROJECTION);
-    //GL11.glLoadIdentity();
-    //GL11.glOrtho(-1 * xAbs, xAbs, -1 * yAbs, yAbs, -500, 500);
-    //GL11.glMatrixMode(GL11.GL_MODELVIEW);
-    //GL11.glLoadIdentity();
-    // Translate
-    //GL11.glTranslatef(transLR, transUD, 0);
-    // Rotate x
-    //GL11.glRotatef(xAngle, 1.0f, 0.0f, 0.0f);
-    // Rotate z
-    //GL11.glRotatef(zAngle, 0.0f, 0.0f, 1.0f);
-
-    // Set up inverseRotation matrix
-    /*Matrix4d zAngleMat = new Matrix4d();
-    zAngleMat.zAngle(Math.toRadians(-1 * zAngle));
-    Matrix4d xAngleMat = new Matrix4d();
-    xAngleMat.xAngle(Math.toRadians(-1 * xAngle));
-    inverseRotation = new Matrix4d(zAngleMat);
-    inverseRotation.mul(xAngleMat);*/
   }
-  
-  /*
-  public static Vector3f direction() {
-    Vector3d vec = new Vector3d(0, 0, 1);
-    inverseRotation.transform(vec);
-    return vec;
-  }
-  */
 }

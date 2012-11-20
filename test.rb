@@ -111,6 +111,19 @@ rot_x = Math::PI / -4
 trans_lr = 0
 trans_ud = -50
 
+# FBO test code
+img_written = false
+img = java.awt.image.BufferedImage.new(1500, 900, java.awt.image.BufferedImage::TYPE_INT_RGB)
+puts 'blitting color to BufferedImage'
+#0.upto(899) do |y|
+#  0.upto(1499) do |x|
+#    img.setRGB(x, y, java.awt.Color.new(x.to_f / 1499, y.to_f / 899, 1.to_f).getRGB)
+#  end
+#end
+puts 'done blitting'
+javax.imageio.ImageIO.write(img, "jpg", java.io.File.new("framebuffer.jpg"))
+# End FBO test code
+
 until Display.isCloseRequested
   GL11.glClear(GL11::GL_COLOR_BUFFER_BIT | GL11::GL_DEPTH_BUFFER_BIT)
   check_gl_error

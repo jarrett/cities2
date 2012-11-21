@@ -32,7 +32,18 @@ class GLProgram
     end
     @attr_indices = {}
     @uni_indices = {}
+    @frag_data_indices = {}
     @textures = {}
+  end
+  
+  java_signature 'public void setMouseCoordUnis()'
+  def set_mouse_coord_unis
+    GL20.glUniform2f(uni_index('mouseCoords'), World.mouseX, World.mouseY)
+  end
+  
+  java_signature 'public void setWorldSizeUnis()'
+  def set_world_size_unis
+    GL20.glUniform2f(uni_index('worldSize'), World.width, World.length)
   end
   
   attr_reader :textures

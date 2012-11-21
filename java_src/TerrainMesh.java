@@ -41,7 +41,7 @@ class TerrainMesh {
   public Vertex verts[][];
   public int vaoId, attrVBOId, indexVBOId;
   Matrix4f camera;
-  int cameraUniIndex;
+  int cameraUniIndex, pickingUniIndex;
   FloatBuffer cameraFloats; // Saved as an instance variable so we don't have to create a new native buffer on each render call
   
   public int cols() {
@@ -183,16 +183,23 @@ class TerrainMesh {
     GL30.glBindVertexArray(0);
   }
   
-  public void render() {
+  public void render(boolean picking) {
     GL30.glBindVertexArray(vaoId);
     program.use();
     program.bindTextures();
     MatrixUtils.copyToBuffer(camera, cameraFloats);
+    GL20.glUniform1i(pickingUniIndex, (picking) ? 1 : 0);
+    program.setWorldSizeUnis();
+    program.setMouseCoordUnis();
     GL20.glUniformMatrix4(cameraUniIndex, false, cameraFloats);
     // Count is the number of elements in the index buffer
     // 2 triangles per square, 3 indices per triangle
     GL11.glDrawElements(GL11.GL_TRIANGLES, squares() * 2 * 3, GL11.GL_UNSIGNED_INT, 0);
     GL30.glBindVertexArray(0);
+  }
+  
+  public void render() {
+    render(false);
   }
   
   public int rows() {
@@ -216,6 +223,7 @@ class TerrainMesh {
     verts = new Vertex[cols][rows];
     cameraUniIndex = program.uniIndex("camera");
     cameraFloats = BufferUtils.createFloatBuffer(16);
+    pickingUniIndex = program.uniIndex("picking");
   }
   
   // Ensures that the Z component is positive.

@@ -4,13 +4,16 @@ require 'jar/cities.jar'
 require './gl_shader'
 require './gl_program'
 
+java_import 'org.lwjgl.BufferUtils'
 java_import 'org.lwjgl.opengl.Display'
 java_import 'org.lwjgl.opengl.DisplayMode'
 java_import 'org.lwjgl.opengl.PixelFormat'
 java_import 'org.lwjgl.opengl.ContextAttribs'
 java_import 'org.lwjgl.opengl.GL11'
+java_import 'org.lwjgl.opengl.GL14'
 java_import 'org.lwjgl.opengl.GL15'
 java_import 'org.lwjgl.opengl.GL20'
+java_import 'org.lwjgl.opengl.GL30'
 java_import 'org.lwjgl.input.Mouse'
 java_import 'cities.HeightField'
 java_import 'cities.TerrainMesh'
@@ -18,7 +21,14 @@ java_import 'cities.Camera'
 java_import 'cities.GLTexture'
 java_import 'cities.Thing'
 java_import 'cities.ThingConfig'
+java_import 'cities.World'
 java_import 'javax.vecmath.Vector3f'
+
+WINDOW_W = 1100
+WINDOW_H = 700
+
+World.width = 100
+World.length = 100
 
 def check_gl_error
   code = GL11.glGetError
@@ -38,7 +48,13 @@ def draw_line(position_attr_index, normal_attr_index, from, to)
   check_gl_error
 end
 
-Display.setDisplayMode(DisplayMode.new(1500,900))
+# When Java returns a signed byte that should have been unsigned, positive numbers greater
+# than 127 get two's-complemented. This fixes it.
+def cast_byte_to_unsigned(byte)
+  (-1 * (byte^0xff)) - 1
+end
+
+Display.setDisplayMode(DisplayMode.new(WINDOW_W, WINDOW_H))
 Display.create(
   PixelFormat.new,
   ContextAttribs.new(3, 2).withProfileCore(true)
@@ -111,18 +127,56 @@ rot_x = Math::PI / -4
 trans_lr = 0
 trans_ud = -50
 
+# Set up FBO
+fbo_w = 1024
+fbo_h = ((WINDOW_H.to_f / WINDOW_W) * 1024).floor
+fbo_id = GL30.glGenFramebuffers
+GL30.glBindFramebuffer(GL30::GL_FRAMEBUFFER, fbo_id)
+fbo_rb_id = GL30.glGenRenderbuffers
+GL30.glBindRenderbuffer(GL30::GL_RENDERBUFFER, fbo_rb_id)
+GL30.glRenderbufferStorage(GL30::GL_RENDERBUFFER, GL11::GL_RGBA, fbo_w, fbo_h)
+GL30.glFramebufferRenderbuffer(GL30::GL_FRAMEBUFFER, GL30::GL_COLOR_ATTACHMENT0, GL30::GL_RENDERBUFFER, fbo_rb_id)
+fbo_rd_id = GL30.glGenRenderbuffers
+GL30.glBindRenderbuffer(GL30::GL_RENDERBUFFER, fbo_rd_id)
+GL30.glRenderbufferStorage(GL30::GL_RENDERBUFFER, GL14::GL_DEPTH_COMPONENT16, fbo_w, fbo_h)
+GL30.glFramebufferRenderbuffer(GL30::GL_FRAMEBUFFER, GL30::GL_DEPTH_ATTACHMENT, GL30::GL_RENDERBUFFER, fbo_rd_id)
+unless (code = GL30.glCheckFramebufferStatus(GL30::GL_FRAMEBUFFER)) == GL30::GL_FRAMEBUFFER_COMPLETE
+  failure = case code
+  when GL30::GL_FRAMEBUFFER_UNDEFINED
+    'GL_FRAMEBUFFER_UNDEFINED'
+  when GL30::GL_FRAMEBUFFER_UNSUPPORTED
+    'GL_FRAMEBUFFER_UNSUPPORTED'
+  when GL30::GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT
+    'GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT'
+  when GL30::GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT
+    'GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT'
+  when GL30::GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER
+    'GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER'
+  when GL30::GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER
+    'GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER'
+  when GL30::GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE
+    'GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE'
+  else
+    "unrecognized failure code: #{code}"
+  end
+  raise "Framebuffer not complete: #{failure}"
+end
+GL30.glBindFramebuffer(GL30::GL_FRAMEBUFFER, 0)
+
 # FBO test code
 img_written = false
-img = java.awt.image.BufferedImage.new(1500, 900, java.awt.image.BufferedImage::TYPE_INT_RGB)
-puts 'blitting color to BufferedImage'
+img = java.awt.image.BufferedImage.new(fbo_w, fbo_h, java.awt.image.BufferedImage::TYPE_INT_RGB)
+#puts 'blitting color to BufferedImage'
 #0.upto(899) do |y|
 #  0.upto(1499) do |x|
 #    img.setRGB(x, y, java.awt.Color.new(x.to_f / 1499, y.to_f / 899, 1.to_f).getRGB)
 #  end
 #end
-puts 'done blitting'
-javax.imageio.ImageIO.write(img, "jpg", java.io.File.new("framebuffer.jpg"))
+#puts 'done blitting'
+#javax.imageio.ImageIO.write(img, "jpg", java.io.File.new("framebuffer.jpg"))
 # End FBO test code
+
+mouse_pos_buf = BufferUtils.createFloatBuffer(4)
 
 until Display.isCloseRequested
   GL11.glClear(GL11::GL_COLOR_BUFFER_BIT | GL11::GL_DEPTH_BUFFER_BIT)
@@ -142,7 +196,7 @@ until Display.isCloseRequested
     trans_lr += Mouse.getDX * 1.5 / zoom
     trans_ud += Mouse.getDY * 1.5 / zoom
   end
-  cam_matrix = Camera.matrix(1500, 900, zoom, trans_lr, trans_ud, rot_z, rot_x)
+  cam_matrix = Camera.matrix(WINDOW_W, WINDOW_H, zoom, trans_lr, trans_ud, rot_z, rot_x)
   
   ground_mesh.setCamera(cam_matrix)
   ground_mesh.render
@@ -151,6 +205,53 @@ until Display.isCloseRequested
   water_mesh.render
   
   Display.update
+  
+  
+  GL30.glBindFramebuffer(GL30::GL_FRAMEBUFFER, fbo_id)
+  GL11.glClear(GL11::GL_COLOR_BUFFER_BIT | GL11::GL_DEPTH_BUFFER_BIT)
+  ground_mesh.render true
+  water_mesh.render true
+  #Display.update
+  #buf = BufferUtils.createFloatBuffer(fbo_w * fbo_h * 3)
+  #buf.rewind
+  
+  GL11.glReadBuffer(GL30::GL_COLOR_ATTACHMENT0)
+  #GL11.glReadPixels(0, 0, fbo_w, fbo_h, GL11::GL_RGB, GL11::GL_FLOAT, buf)
+  
+  #GL11.glReadPixels(0, 0, 1, 1, GL11::GL_RGB, GL11::GL_FLOAT, buf)
+  mouse_pos_buf.rewind
+  GL11.glReadPixels(
+    Mouse.getX * (fbo_w.to_f / WINDOW_W).round,
+    Mouse.getY * (fbo_h.to_f / WINDOW_H).round,
+    1, 1,
+    GL11::GL_RGBA, GL11::GL_FLOAT, mouse_pos_buf
+  )
+  #buf.rewind
+  mouse_pos_buf.rewind
+  if false
+    fbo_h.times do |y|
+      fbo_w.times do |x|
+        r = buf.get
+        g = buf.get
+        b = buf.get
+        #a = buf.get
+        img.setRGB(x, (fbo_h - 1) - y, java.awt.Color.new(r, g, b).getRGB)
+      end
+    end
+    javax.imageio.ImageIO.write(img, "jpg", java.io.File.new("framebuffer.jpg"))
+  end
+  World.mouseX = mouse_pos_buf.get * World.width
+  World.mouseY = mouse_pos_buf.get * World.length
+  mouse_pos_buf.get # blue
+  a = mouse_pos_buf.get
+  if a > 0
+    #puts "world x: #{x}, world y: #{y}"
+  else
+    World.mouseX = -1
+    World.mouseY = -1
+  end
+  GL30.glBindFramebuffer(GL30::GL_FRAMEBUFFER, 0)
+  
   Display.sync(30)
 end
 Display.destroy

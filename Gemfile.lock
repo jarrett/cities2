@@ -1,8 +1,10 @@
 GEM
   remote: http://rubygems.org/
   specs:
+    binpack (0.0.4)
 
 PLATFORMS
   java
 
 DEPENDENCIES
+  binpack

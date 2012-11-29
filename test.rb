@@ -1,8 +1,15 @@
+ROOT = File.expand_path(File.dirname(__FILE__))
+
 require 'java'
 require 'jar/lwjgl.jar'
 require 'jar/cities.jar'
+
+require 'rubygems'
+require 'binpack'
+
 require './gl_shader'
 require './gl_program'
+require './gui_component'
 
 java_import 'org.lwjgl.BufferUtils'
 java_import 'org.lwjgl.opengl.Display'
@@ -22,7 +29,8 @@ java_import 'cities.GLTexture'
 java_import 'cities.Thing'
 java_import 'cities.ThingConfig'
 java_import 'cities.World'
-java_import 'javax.vecmath.Vector3f'
+java_import 'cities.PoolAllocator'
+#java_import 'javax.vecmath.Vector3f'
 
 WINDOW_W = 1100
 WINDOW_H = 700
@@ -60,6 +68,8 @@ Display.create(
   ContextAttribs.new(3, 2).withProfileCore(true)
 )
 Display.setTitle('Cities')
+
+GuiComponent.ensure_static_initialized
 
 # Shaders
 ground_program = GLProgram.new('shaders/terrain_vert.glsl', 'shaders/ground_frag.glsl')

@@ -69,7 +69,7 @@ Display.create(
 )
 Display.setTitle('Cities')
 
-GuiComponent.ensure_static_initialized
+#GuiComponent.ensure_static_initialized
 
 # Shaders
 ground_program = GLProgram.new('shaders/terrain_vert.glsl', 'shaders/ground_frag.glsl')

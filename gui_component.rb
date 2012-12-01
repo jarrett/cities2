@@ -1,4 +1,4 @@
-require 'openstruct'
+require 'ostruct'
 
 class GuiComponent
   MAX_RECTS = 100

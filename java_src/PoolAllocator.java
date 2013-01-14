@@ -21,6 +21,9 @@ class PoolAllocator {
         for (int i = start; i <= cursor; i++) {
           map[i] = false;
         }
+        if (maxUsed < cursor) {
+          maxUsed = cursor;
+        }
         incCursor();
         return start;
       }
@@ -57,15 +60,17 @@ class PoolAllocator {
       // We've hit the end of the map. Start from the beginning.
       cursor = 0;
     }
-    if (this.maxUsed < cursor) {
-      this.maxUsed = cursor;
-    }
   }
   
+  // The index of the last used block. So, if you've used only the first 20 blocks, then
+  // maxUsed is 19.
   public int maxUsed() {
     return this.maxUsed;
   }
   
+  // length is the number of elements. The pool allocator doesn't know the size of any particular
+  // element. E.g. it could be a byte, four bytes, whatever. All the pool allocator tracks is
+  // abstract elements. Thus, it is up to the calling code to know how much memory an element represents.
   public PoolAllocator(int length) {
     this.length = length;
     this.cursor = 0;

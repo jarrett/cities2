@@ -32,7 +32,6 @@ class GLProgram
     end
     @attr_indices = {}
     @uni_indices = {}
-    @frag_data_indices = {}
     @textures = {}
   end
   

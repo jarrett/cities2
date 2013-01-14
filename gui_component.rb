@@ -1,193 +1,266 @@
 require 'ostruct'
 
+# #update writes the component's vertex attributes into the appropriate places in the attribute buffer.
+# It must be called manually. No other method within GuiComponent calls #update. (However, #update
+# is recursive, so parents call #update on their children.)
+#
+# #show writes the component's vertex indices into the appropriate places in the element buffer, which
+# will cause the component to be rendered on the next draw cycle. Likewise, #hide overwrites those
+# spots in the element buffer with -1.
+
+# #show is the appropriate way to display a component for the first time after it has been buffered.
+
 class GuiComponent
-  MAX_RECTS = 100
+  MAX_RECTS = 1
   
-  def self.attr_pool_allocator
-    @attr_pool_allocator
+  attr_reader :children
+  
+  @@static_initialized = false
+  
+  # Relative to screen
+  def abs_x
+    @abs_x ||= (@parent ? @parent.abs_x + @x : @x)
   end
   
-  def self.attr_vbo_id
-    @attr_vbo_id
+  def abs_y
+    @abs_y ||= (@parent ? @parent.abs_y + @y : @y)
   end
   
-  # Call this once and only once
-  def buffer
-    raise "Can't call #buffer twice for same GuiComponent. Did you mean to call rebuffer_positions?" if @buffered
-    @buffered = true
-    
-    # 4 vertices, 4 vector components per vertex
-    @attr_buffer_index = self.class.attr_pool_allocator.alloc(4 * 4)
-    
-    self.class.map_attr_buffer do |float_buffer|
-      4.times do |i|
-        # Position
-        float_buffer.put @attr_buffer_index + i + 0, @corners[i].x
-        float_buffer.put @attr_buffer_index + i + 1, @corners[i].y
-        
-        # Tex coords
-        float_buffer.put @attr_buffer_index + i + 2, @corners[i].u
-        float_buffer.put @attr_buffer_index + i + 3, @corners[i].v
-      end
-    end
-    
-    # Indices for 4 verts
-    @element_buffer_index = self.class.element_pool_allocator.alloc(4)
-    
-    self.class.map_element_buffer do |int_buffer|
-      4.times do |i|
-        int_buffer.put @element_buffer_index + i, @attr_buffer_index + i
-      end
-    end
+  def attr_vbo_index
+    raise('Calling attr_vbo_index for component with nil @sprite') unless @sprite
+    # 4 vertices, 5 vector components per vertex
+    @attr_vbo_index ||= @@attr_pool_allocator.alloc(1) * 4 * 5
   end
   
-  # All the setup that must be done exactly once before any GUI components are drawn
+  def elem_vbo_index
+    raise('Calling elem_vbo_index for component with nil @sprite') unless @sprite
+    # 6 indices per quad
+    @elem_vbo_index ||= @@element_pool_allocator.alloc(1) * 6
+  end
+  
+  # All the setup that must be done exactly once before any GUI components are drawn.
   def self.ensure_static_initialized
-    unless @static_initialized
+    unless @@static_initialized
       # Program
-      @program = GLProgram.new 'shaders/gui_vert.glsl', 'shaders/gui_frag.glsl'
+      @@program = GLProgram.new 'shaders/gui_vert.glsl', 'shaders/gui_frag.glsl'
+      check_gl_error
+      @@screen_w_uni_index = @@program.uni_index('screenW')
+      @@screen_h_uni_index = @@program.uni_index('screenH')
+      check_gl_error
       
       # VAO
-      @vao_id = GL30.glGenVertexArrays
-      GL30.glBindVertexArray(@vao_id)
+      @@vao_id = GL30.glGenVertexArrays
+      GL30.glBindVertexArray(@@vao_id)
+      check_gl_error
       
       # Attribute buffer
-      @attr_vbo_id = GL15.glGenBuffers
-      GL15.glBindBuffer GL15::GL_ARRAY_BUFFER, @attr_vbo_id
-      # 4 vertices, 4 vector components per vertex, 4 bytes per vector component (float)
-      GL15.glBufferData GL15::GL_ARRAY_BUFFER, MAX_RECTS * 4 * 4 * 4, GL15::GL_STATIC_DRAW
+      @@attr_vbo_id = GL15.glGenBuffers
+      GL15.glBindBuffer GL15::GL_ARRAY_BUFFER, @@attr_vbo_id
+      # 4 vertices, 5 vector components per vertex (3 position, 2 tex), 4 bytes per vector component (float)
+      GL15.glBufferData GL15::GL_ARRAY_BUFFER, MAX_RECTS * 4 * 5 * 4, GL15::GL_DYNAMIC_DRAW
+      check_gl_error
       
-      # Attribute buffer format
-      # index, size, type, normalized, stride, offset
-      # Stride: 2 vectors * 3 components per vector * 4 bytes per component
-      # Offset for tex coords: 3 components per vector * 4 bytes per component
-      position_index = @program.attr_index('position')
-      tex_coord_index = @program.attr_index('texCoord')
+      # Attribute buffer format:
+      # There are 5 components to each vector: x, y, z, u, v.
+      # Parameters of glVertexAttribPointer: index, size, type, normalized, stride, offset
+      # Stride: 5 components per vertex * 4 bytes per component
+      # Offset for tex coords: 5 components per vertex * 4 bytes per component
+      position_index = @@program.attr_index('position')
+      tex_coord_index = @@program.attr_index('texCoord')
       GL20.glEnableVertexAttribArray(position_index)
-      GL20.glVertexAttribPointer(position_index, 3, GL11::GL_FLOAT, false, 2 * 3 * 4, 0)
+      GL20.glVertexAttribPointer(position_index, 3, GL11::GL_FLOAT, false, 5 * 4, 0)
       GL20.glEnableVertexAttribArray(tex_coord_index)
-      GL20.glVertexAttribPointer(tex_coord_index, 3, GL11::GL_FLOAT, false, 2 * 3 * 4, 3 * 4)
+      GL20.glVertexAttribPointer(tex_coord_index, 2, GL11::GL_FLOAT, false, 5 * 4, 3 * 4)
+      check_gl_error
+      
+      # Element buffer
+      @@elem_vbo_id = GL15.glGenBuffers
+      GL15.glBindBuffer GL15::GL_ELEMENT_ARRAY_BUFFER, @@elem_vbo_id
+      # 6 indices per quad (because it's drawn as triangles) * 4 bytes per index
+      GL15.glBufferData GL15::GL_ELEMENT_ARRAY_BUFFER, MAX_RECTS * 6 * 4, GL15::GL_DYNAMIC_DRAW
+      check_gl_error
+      
+      # For each of these pool allocators, we're allowing each element of the allocator's map
+      # to represent one GUI component. Thus, we can set the length of our pool allocators to
+      # MAX_RECTS. So one unit in the attribute allocator is 4 * 5 * 4 = 80 bytes; one unit
+      # in the elements allocator is 6 * 4 = 24 bytes.
+      @@attr_pool_allocator = PoolAllocator.new(MAX_RECTS)
+      @@element_pool_allocator = PoolAllocator.new(MAX_RECTS)
+      check_gl_error
       
       GL30.glBindVertexArray(0)
       
-      # Index buffer
-      @index_vbo_id = GL15.glGenBuffers
-      GL15.glBindBuffer GL15::GL_ELEMENT_ARRAY_BUFFER, @index_vbo_id
-      GL15.glBufferData GL15::GL_ELEMENT_ARRAY_BUFFER, MAX_RECTS * 4, GL15::GL_STATIC_DRAW
-      
-      # For each of these pool allocators, we're allowing each element of the allocator's map
-      # to represent one GUI component, i.e. 4 vertices.
-      @attr_pool_allocator = PoolAllocator.new(MAX_RECTS)
-      @element_pool_allocator = PoolAllocator.new(MAX_RECTS)
-      
-      # Array of all components, not all of which are necessarily rendered every frame
-      @components = []
-      
-      # Create sprite sheet and initialize each component, placing it into the @components array
-      imgs = Dir.glob(File.join(ROOT, 'assets/gui/*.png')).collect do |path|
-        javax.imageio.ImageIO.read(java.io.File.new(path))
-      end
-      bin_items = imgs.collect do |img|
-        Binpack::Item.new(img, img.getWidth, img.getHeight)
-      end
-      packed = Binpack::Bin.pack(bin_items, [], Binpack::Bin.new(1024, 1024, 1)).first.items
-      sprite_sheet = java.awt.image.BufferedImage.new(1024, 1024, java.awt.image.BufferedImage::TYPE_INT_RGB)
-      graphics = sprite_sheet.getGraphics
-      packed.items.each do |item, left, top|
-        graphics.drawImage(item.obj, left, top)
-        @components << new(left, top, item.width, item.height, item.rotated)
-      end
-      
-      @static_initialized = true
+      @@static_initialized = true
     end
   end
   
-  # Call in a GuiComponent.map_element_buffer block
-  def hide(indices)
-    @element_index.upto(@element_index + 3) do |i|
-      indices[i] = -1
-    end
+  def height=(new_h)
+    @height = new_h
   end
   
-  def self.element_pool_allocator
-    @element_pool_allocator
+  def hide
+    raise 'not implemented'
   end
   
-  def self.index_vbo_id
-    @index_vbo_id
-  end
-  
-  # spr_left and spr_top are the offsets in the sprite sheet. When initializing a new GUI component,
-  # you don't give it screen coordinates. Those are provided later, when the sprite is shown and
-  # any time it moves.
-  def initialize(spr_left, spr_top, width, height, rotated)
-    @spr_left = spr_left
-    @spr_top = spr_top
+  # x and y are relative to screen if there is no parent. Otherwise, relative to parent.
+  def initialize(x, y, width, height, options = {})
+    @x = x
+    @y = y
     @width = width
     @height = height
-    @rotated = rotated
-    
-    # As we set up each corner, we take into account the rotation. If a sprite is rotated on the sheet,
-    # it is rotated 90* CW.
-    t = spr_top.to_f / 1024
-    r = (spr_left + width).to_f / 1024
-    b = (spr_top + height).to_f / 1024
-    l = spr_left.to_f / 1024
-    @corners = []
-    # Top left. If rotated, top right corner on sprite sheet.
-    @corners << OpenStruct.new(:x => nil, :y => nil, :u => rotated ? r : l, :v => t)
-    # Bottom left. If rotated, top left corner on sprite sheet.
-    @corners << OpenStruct.new(:x => nil, :y => nil, :u => l, :v => rotated ? t : b)
-    # Bottom right. If rotated, bottom left corner on sprite sheet.
-    @corners << OpenStruct.new(:x => nil, :y => nil, :u => rotated ? l : r, :v => b)
-    # Top right. If rotated, bottom right corner on sprite sheet.
-    @corners << OpenStruct.new(:x => nil, :y => nil, :u => r, :v => rotated ? b : t)
+    @children = []
+    if options[:sprite]
+      self.sprite = options[:sprite]
+    end
+    if block_given?
+      yield self
+    end
   end
   
-  def self.map_attr_buffer
-    GL15.glBindBuffer GL15::GL_ARRAY_BUFFER, @attr_vbo_id
-    # 4 indices per rectangle, 4 bytes per index
-    attrs = GL15.glMapBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, GL15::GL_READ_WRITE, MAX_RECTS * 4 * 4).asFloatBuffer
-    yield attrs
-    GL15.glUnmapBuffer GL15::GL_ARRAY_BUFFER
+  attr_reader :parent
+  
+  # Uses glDrawElements.
+  def self.render
+    GL30.glBindVertexArray(@@vao_id)
+    @@program.use
+    @@program.bind_textures
+    GL20.glUniform1i(@@screen_w_uni_index, Display.getWidth)
+    GL20.glUniform1i(@@screen_h_uni_index, Display.getHeight)
+    # Not sure why this is necessary, but without it, GL_ARRAY_BUFFER is bound to the terrain VBO.
+    GL15.glBindBuffer GL15::GL_ARRAY_BUFFER, @@attr_vbo_id
+    #print_vbo GL15::GL_ELEMENT_ARRAY_BUFFER, :int
+    #print_vbo GL15::GL_ARRAY_BUFFER, :float
+    # Count is the number of elements in the index buffer
+    # (@@attr_pool_allocator.maxUsed + 1) * 6: In the allocators, 1 element corresponds to a single
+    # GuiComponent. The number of vertices to draw is thus the number of allocated slots times 6.
+    # We add 1 because the number returned by maxUsed is an index, so the total is actually that
+    # plus one.
+    #puts "Count: #{(@@attr_pool_allocator.maxUsed + 1) * 6}"
+    GL11.glDrawElements(GL11::GL_TRIANGLES, (@@attr_pool_allocator.maxUsed + 1) * 6, GL11::GL_UNSIGNED_INT, 0)
+    GL30.glBindVertexArray(0)
     GL15.glBindBuffer GL15::GL_ARRAY_BUFFER, 0
+    check_gl_error
   end
   
-  def self.map_element_buffer
-    GL15.glBindBuffer GL15::GL_ELEMENT_ARRAY_BUFFER, @attr_vbo_id
-    # 4 4 vertices per rectangle, 4 vector components per vertex, 4 bytes component
-    indices = GL15.glMapBuffer(GL15::GL_ELEMENT_ARRAY_BUFFER, GL15::GL_READ_WRITE, MAX_RECTS * 4 * 4).asIntBuffer
-    yield indices
-    GL15.glUnmapBuffer GL15::GL_ELEMENT_ARRAY_BUFFER
+  def show
+    # 6 indices per quad, 4 bytes per index
+    byte_buffer = BufferUtils.createByteBuffer(6 * 4).asIntBuffer
+    # Each of these is the index of the vertex within the attributes buffer. Thus, if elem_vbo_index
+    # is 24, we're looking at the second thing in this array, and its value is 39, we will ultimately
+    # write 39 to position 26 of the element buffer.
+    byte_buffer.put([
+      # Top left
+      attr_vbo_index + 0,
+      # Bottom left
+      attr_vbo_index + 1,
+      # Top right
+      attr_vbo_index + 3,
+      
+      # Bottom left
+      attr_vbo_index + 1,
+      # Bottom right
+      attr_vbo_index + 2,
+      # Top right
+      attr_vbo_index + 3,
+    ].to_java(:int))
+    
+    byte_buffer.rewind
+    GL15.glBindBuffer GL15::GL_ELEMENT_ARRAY_BUFFER, @@elem_vbo_id
+    GL15.glBufferSubData(GL15::GL_ELEMENT_ARRAY_BUFFER, elem_vbo_index, byte_buffer)
     GL15.glBindBuffer GL15::GL_ELEMENT_ARRAY_BUFFER, 0
   end
   
-  def rebuffer_positions
-    self.class.map_attr_buffer do |float_buffer|
-      4.times do |i|
-        # Position
-        float_buffer.put @attr_buffer_index + i + 0, @corners[i].x
-        float_buffer.put @attr_buffer_index + i + 1, @corners[i].y
+  # Pass in a Sprite instance or the Sprite's ID as a String.
+  def sprite=(sprite)
+    unless sprite.is_a?(Sprite)
+      sprite = Sprite.get(sprite.to_s)
+    end
+    @sprite = sprite
+  end
+  
+  # Call this after changing the component's position. Its position and those of its descendants
+  # will be rebuffered (for those that have a sprite).
+  def update
+    @abs_x = nil
+    @abs_y = nil
+    if @sprite
+      pos_left = abs_x
+      pos_right = abs_x + @width
+      pos_top = abs_y
+      pos_bottom = abs_y + @height
+      tex_left = @sprite.u_frac
+      tex_right = @sprite.u_frac + @sprite.w_frac
+      tex_top = @sprite.v_frac
+      tex_bottom = @sprite.v_frac + @sprite.h_frac
+      
+      # Write to the attribute buffer. We won't write to the element buffer until we call #show.
+      
+      # 4 vertices, 5 vector components per vertex (3 position, 2 tex), 4 bytes per vector component (float)
+      byte_buffer = BufferUtils.createByteBuffer(4 * 5 * 4).asFloatBuffer
+      byte_buffer.put([
+        # Top left
+        pos_top,
+        pos_left,
+        z,
+        tex_left,
+        tex_top,
         
-        # Skip tex coords
-        2.times { float_buffer.get }
+        # Bottom left
+        pos_left,
+        pos_bottom,
+        z,
+        tex_left,
+        tex_bottom,
+        
+        # Bottom right
+        pos_right,
+        pos_bottom,
+        z,
+        tex_right,
+        tex_bottom,
+        
+        # Top right
+        pos_right,
+        pos_top,
+        z,
+        tex_right,
+        tex_top
+      ].to_java(:float))
+      byte_buffer.rewind
+      GL15.glBindBuffer GL15::GL_ARRAY_BUFFER, @@attr_vbo_id
+      GL15.glBufferSubData(GL15::GL_ARRAY_BUFFER, attr_vbo_index, byte_buffer)
+      GL15.glBindBuffer GL15::GL_ARRAY_BUFFER, 0
+    end
+    children.each { |c| c.update }
+  end
+  
+  def width=(new_w)
+    @width = new_w
+  end
+  
+  # Relative to screen if there is no parent. Otherwise, relative to parent.
+  def x=(new_x)
+    @x = new_x
+    @abs_x = nil
+  end
+  
+  # Relative to screen if there is no parent. Otherwise, relative to parent.
+  def y=(new_y)
+    @y = new_y
+    @abs_y = nil
+  end
+  
+  def z
+    if @z
+      @z
+    else
+      if @parent
+        @z = @parent.z + 0.0001
+      else
+        @z = 0.99
       end
     end
   end
   
-  def self.render
-    GL30.glBindVertexArray(@vao_id)
-    program.use
-    program.bindTextures
-    # Count is the number of elements in the index buffer
-    GL11.glDrawElements(GL11::GL_QUADS, @attr_pool_allocator.maxUsed, GL11::GL_UNSIGNED_INT, 0)
-    GL30.glBindVertexArray(0)
-  end
-  
-  # Call in a GuiComponent.map_element_buffer block
-  def show(indices)
-    @element_index.upto(@element_index + 3) do |i|
-      indices[i] = @attr_index + (i - @element_index)
-    end
-  end
+  attr_writer :z
 end

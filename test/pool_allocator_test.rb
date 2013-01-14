@@ -50,6 +50,12 @@ class PoolAllocatorTest < Test::Unit::TestCase
   end
   
   def test_max_used
-    pending
+    pa = PoolAllocator.new(20)
+    pa.alloc(15)
+    assert_equal 14, pa.maxUsed
+    
+    pa = PoolAllocator.new(1)
+    pa.alloc(1)
+    assert_equal 0, pa.maxUsed
   end
 end

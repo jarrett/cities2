@@ -10,6 +10,8 @@ require 'binpack'
 require './gl_shader'
 require './gl_program'
 require './gui_component'
+require './sprite'
+require './glyph'
 
 java_import 'org.lwjgl.BufferUtils'
 java_import 'org.lwjgl.opengl.Display'
@@ -31,6 +33,40 @@ java_import 'cities.ThingConfig'
 java_import 'cities.World'
 java_import 'cities.PoolAllocator'
 #java_import 'javax.vecmath.Vector3f'
+
+def print_vbo(target, type)
+  case target
+  when GL15::GL_ARRAY_BUFFER
+    pname = GL15::GL_ARRAY_BUFFER_BINDING
+  when GL15::GL_ELEMENT_ARRAY_BUFFER
+    pname = GL15::GL_ELEMENT_ARRAY_BUFFER_BINDING
+  else
+    raise "Unknown target: #{target.inspect}"
+  end
+  id = GL11.glGetInteger(pname)
+  check_gl_error
+  puts "Buffer id: #{id.inspect}"  
+  size = GL15.glGetBufferParameter(target, GL15::GL_BUFFER_SIZE) # Measured in bytes
+  check_gl_error
+  case type
+  when :float
+    buffer = BufferUtils.createByteBuffer(size).asFloatBuffer
+  when :int
+    buffer = BufferUtils.createByteBuffer(size).asIntBuffer
+  else
+    raise "Unknown type: #{type.inspect}"
+  end
+  buffer.rewind
+  GL15.glGetBufferSubData(target, 0, buffer)
+  check_gl_error
+  arr = []
+  buffer.rewind
+  buffer.capacity.times do
+    arr << buffer.get
+  end
+  puts arr.inspect
+  puts "#{arr.length} elements"
+end
 
 WINDOW_W = 1100
 WINDOW_H = 700
@@ -69,7 +105,16 @@ Display.create(
 )
 Display.setTitle('Cities')
 
-#GuiComponent.ensure_static_initialized
+Sprite.load_all
+GuiComponent.ensure_static_initialized
+comp = GuiComponent.new(20, 20, 10, 10, :sprite => 'terrain') do |c|
+  # create_child calls .new and #add_child. the args get passed through to .new
+  #c.create_child 0, 0, :sprite => 'terrain'
+  #c.create_child 50, 0, :text => 'Edit Terrain'
+end
+comp.update
+comp.show
+
 
 # Shaders
 ground_program = GLProgram.new('shaders/terrain_vert.glsl', 'shaders/ground_frag.glsl')
@@ -103,6 +148,7 @@ ground_mesh.generateMesh(0, 0, 100, 100)
 ground_mesh.initBuffers
 check_gl_error
 
+=begin
 tall_grass_2_cfg = ThingConfig.new('tall_grass_2', 'assets/things/tall_grass_2.zip')
 tall_grasses = []
 100.times do |i|
@@ -115,6 +161,7 @@ tall_grasses = []
     tall_grasses << tall_grass
   end
 end
+=end
 
 water_height_field = HeightField.new(1, 1, 0.03)
 water_height_field.loadFromImage('assets/water_height_100x100.jpg')
@@ -209,10 +256,10 @@ until Display.isCloseRequested
   cam_matrix = Camera.matrix(WINDOW_W, WINDOW_H, zoom, trans_lr, trans_ud, rot_z, rot_x)
   
   ground_mesh.setCamera(cam_matrix)
-  ground_mesh.render
+  #ground_mesh.render
   
   water_mesh.setCamera(cam_matrix)
-  water_mesh.render
+  #water_mesh.render
   
   Display.update
   
@@ -221,6 +268,9 @@ until Display.isCloseRequested
   GL11.glClear(GL11::GL_COLOR_BUFFER_BIT | GL11::GL_DEPTH_BUFFER_BIT)
   ground_mesh.render true
   water_mesh.render true
+  
+  GuiComponent.render
+  
   #Display.update
   #buf = BufferUtils.createFloatBuffer(fbo_w * fbo_h * 3)
   #buf.rewind
@@ -238,18 +288,18 @@ until Display.isCloseRequested
   )
   #buf.rewind
   mouse_pos_buf.rewind
-  if false
-    fbo_h.times do |y|
-      fbo_w.times do |x|
-        r = buf.get
-        g = buf.get
-        b = buf.get
-        #a = buf.get
-        img.setRGB(x, (fbo_h - 1) - y, java.awt.Color.new(r, g, b).getRGB)
-      end
-    end
-    javax.imageio.ImageIO.write(img, "jpg", java.io.File.new("framebuffer.jpg"))
-  end
+  #if false
+  #  fbo_h.times do |y|
+  #    fbo_w.times do |x|
+  #      r = buf.get
+  #      g = buf.get
+  #      b = buf.get
+  #      #a = buf.get
+  #      img.setRGB(x, (fbo_h - 1) - y, java.awt.Color.new(r, g, b).getRGB)
+  #    end
+  #  end
+  #  javax.imageio.ImageIO.write(img, "jpg", java.io.File.new("framebuffer.jpg"))
+  #end
   World.mouseX = mouse_pos_buf.get * World.width
   World.mouseY = mouse_pos_buf.get * World.length
   mouse_pos_buf.get # blue

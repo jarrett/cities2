@@ -6,6 +6,7 @@ require 'jar/cities.jar'
 
 require 'rubygems'
 require 'binpack'
+require 'nokogiri'
 
 require './gl_shader'
 require './gl_program'
@@ -105,7 +106,6 @@ Display.create(
 )
 Display.setTitle('Cities')
 
-Sprite.load_all
 GuiComponent.ensure_static_initialized
 comp = GuiComponent.new(20, 20, 100, 100, :sprite => 'terrain') do |c|
   # create_child calls .new and #add_child. the args get passed through to .new
@@ -256,10 +256,10 @@ until Display.isCloseRequested
   cam_matrix = Camera.matrix(WINDOW_W, WINDOW_H, zoom, trans_lr, trans_ud, rot_z, rot_x)
   
   ground_mesh.setCamera(cam_matrix)
-  #ground_mesh.render
+  ground_mesh.render
   
   water_mesh.setCamera(cam_matrix)
-  #water_mesh.render
+  water_mesh.render
   
   GuiComponent.render
   

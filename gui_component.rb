@@ -41,9 +41,14 @@ class GuiComponent
   # All the setup that must be done exactly once before any GUI components are drawn.
   def self.ensure_static_initialized
     unless @@static_initialized
+      Sprite.load_all unless Sprite.loaded?
+      Glyph.load_all unless Glyph.loaded?
+      
       # Program
       @@program = GLProgram.new 'shaders/gui_vert.glsl', 'shaders/gui_frag.glsl'
       check_gl_error
+      @@program.textures['sprites'] = GLTexture.new(Sprite.sprite_sheet)
+      @@program.textures['font'] = GLTexture.new(Glyph.sprite_sheet)
       @@screen_w_uni_index = @@program.uni_index('screenW')
       @@screen_h_uni_index = @@program.uni_index('screenH')
       check_gl_error

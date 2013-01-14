@@ -15,7 +15,8 @@ import java.awt.image.BufferedImage;
 import cities.GLError;
 
 class GLTexture {
-  public String path;
+  String path;
+  BufferedImage img0;
   public int textureId;
   
   // attrIndex should be obtained by calling glGetUniformLocation
@@ -87,9 +88,11 @@ class GLTexture {
   }
   
   protected BufferedImage[] mipmaps() throws java.io.IOException {
-    BufferedImage img0 = ImageIO.read(new File(path));
-    if (img0 == null) {
-      throw new RuntimeException("Could not load image: " + path);
+    if (path != null) {
+      img0 = ImageIO.read(new File(path));
+      if (img0 == null) {
+        throw new RuntimeException("Could not load image: " + path);
+      }
     }
     int count = mipmapCount(img0);
     BufferedImage[] images = new BufferedImage[count];
@@ -109,6 +112,13 @@ class GLTexture {
   
   public GLTexture(String path) throws java.io.IOException {
     this.path = path;
+    this.img0 = null;
+    createOpenGLTexture();
+  }
+  
+  public GLTexture(BufferedImage img0) throws java.io.IOException {
+    this.img0 = img0;
+    this.path = null;
     createOpenGLTexture();
   }
 }

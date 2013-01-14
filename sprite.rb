@@ -43,8 +43,8 @@ class Sprite
       end
       
       packed = Binpack::Bin.pack(bin_items, [], Binpack::Bin.new(1024, 1024, 1)).first.items
-      sprite_sheet = java.awt.image.BufferedImage.new(1024, 1024, java.awt.image.BufferedImage::TYPE_INT_RGB)
-      graphics = sprite_sheet.getGraphics
+      @@sprite_sheet = java.awt.image.BufferedImage.new(1024, 1024, java.awt.image.BufferedImage::TYPE_INT_RGB)
+      graphics = @@sprite_sheet.getGraphics
       
       packed.each do |item, u_pix, v_pix|
         # item.obj is a BufferedImage containing the individual sprite. See the Javadoc for Graphics,
@@ -55,6 +55,15 @@ class Sprite
       
       @@loaded = true
     end
+  end
+  
+  def self.loaded?
+    @@loaded
+  end
+  
+  # Returns a BufferedImage
+  def self.sprite_sheet
+    @@sprite_sheet
   end
   
   attr_reader :u

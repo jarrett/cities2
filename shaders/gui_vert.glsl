@@ -9,16 +9,10 @@ out vec2 vPosition;
 out vec2 vTexCoord;
 
 void main() {
-  /*float x = position.x / screenW;
-  float y = -1 * (position.y / screenH);*/
-  screenW;
-  screenH;
-  float x = position.x * 0.02;
-  float y = position.y * 0.02;
   gl_Position = vec4(
-    x,
-    y,
-    0,//position.z, // -1 is the near plane of the viewport.
+    (position.x / screenW) - 1,
+    1 - (position.y / screenH),
+    position.z, // -1 is the near plane of the viewport.
     1
   );
   

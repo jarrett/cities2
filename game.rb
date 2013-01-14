@@ -107,7 +107,7 @@ Display.setTitle('Cities')
 
 Sprite.load_all
 GuiComponent.ensure_static_initialized
-comp = GuiComponent.new(20, 20, 10, 10, :sprite => 'terrain') do |c|
+comp = GuiComponent.new(20, 20, 100, 100, :sprite => 'terrain') do |c|
   # create_child calls .new and #add_child. the args get passed through to .new
   #c.create_child 0, 0, :sprite => 'terrain'
   #c.create_child 50, 0, :text => 'Edit Terrain'
@@ -261,6 +261,8 @@ until Display.isCloseRequested
   water_mesh.setCamera(cam_matrix)
   #water_mesh.render
   
+  GuiComponent.render
+  
   Display.update
   
   
@@ -268,8 +270,6 @@ until Display.isCloseRequested
   GL11.glClear(GL11::GL_COLOR_BUFFER_BIT | GL11::GL_DEPTH_BUFFER_BIT)
   ground_mesh.render true
   water_mesh.render true
-  
-  GuiComponent.render
   
   #Display.update
   #buf = BufferUtils.createFloatBuffer(fbo_w * fbo_h * 3)

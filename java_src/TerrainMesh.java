@@ -187,7 +187,7 @@ class TerrainMesh {
     GL30.glBindVertexArray(vaoId);
     program.use();
     program.bindTextures();
-    MatrixUtils.copyToBuffer(camera, cameraFloats);
+    MatrixUtils.copyToBuffer(camera, cameraFloats); // cameraFloats is an instance variable
     GL20.glUniform1i(pickingUniIndex, (picking) ? 1 : 0);
     program.setWorldSizeUnis();
     program.setMouseCoordUnis();

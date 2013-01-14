@@ -127,7 +127,8 @@ class GuiComponent
     GL20.glUniform1i(@@screen_w_uni_index, Display.getWidth)
     GL20.glUniform1i(@@screen_h_uni_index, Display.getHeight)
     # Not sure why this is necessary, but without it, GL_ARRAY_BUFFER is bound to the terrain VBO.
-    GL15.glBindBuffer GL15::GL_ARRAY_BUFFER, @@attr_vbo_id
+    #GL15.glBindBuffer GL15::GL_ARRAY_BUFFER, @@attr_vbo_id
+    #GL15.glBindBuffer GL15::GL_ELEMENT_ARRAY_BUFFER, @@elem_vbo_id
     #print_vbo GL15::GL_ELEMENT_ARRAY_BUFFER, :int
     #print_vbo GL15::GL_ARRAY_BUFFER, :float
     # Count is the number of elements in the index buffer
